@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { siteConfig } from "@/config/site";
+import { AUTH_ROUTES } from "@/lib/auth/constants";
 import { signIn } from "@/lib/auth/client";
 import { getDashboardPath } from "@/lib/auth/redirect";
 import { resolveUserRole } from "@/lib/auth/permissions";
@@ -155,7 +156,15 @@ export function SignInForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href={AUTH_ROUTES.forgotPassword}
+            className="text-xs font-medium text-sky-600 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <PasswordInput
           id="password"
           autoComplete="current-password"

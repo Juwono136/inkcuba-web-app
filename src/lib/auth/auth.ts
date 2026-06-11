@@ -52,6 +52,8 @@ function createAuthConfig(): BetterAuthOptions {
       minPasswordLength: 8,
       maxPasswordLength: 128,
       autoSignIn: false,
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await sendResetPasswordEmail({
           email: user.email,

@@ -61,13 +61,18 @@ export function buildEmailLayout({
           <table role="presentation" class="email-container" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
             <tr>
               <td style="padding:0 0 20px;text-align:center;">
-                <img
-                  src="${brandAssets.emailLogoUrl}"
-                  alt="${escapeHtml(siteConfig.name)}"
-                  width="56"
-                  height="56"
-                  style="display:block;margin:0 auto 12px;width:56px;height:56px;border:0;outline:none;text-decoration:none;"
-                />
+                <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 12px;">
+                  <tr>
+                    <td align="center" style="padding:0;line-height:0;">
+                      <img
+                        src="${brandAssets.emailLogoUrl}"
+                        alt="${escapeHtml(siteConfig.name)}"
+                        width="${brandAssets.emailLogoWidth}"
+                        style="display:block;width:${brandAssets.emailLogoWidth}px;max-width:${brandAssets.emailLogoWidth}px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;"
+                      />
+                    </td>
+                  </tr>
+                </table>
                 <span style="display:inline-block;padding:8px 14px;border-radius:999px;background:#E0F2FE;color:#0284C7;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">
                   ${escapeHtml(siteConfig.name)} · BINUS Portfolio Platform
                 </span>

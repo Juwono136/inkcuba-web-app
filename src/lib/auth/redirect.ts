@@ -22,8 +22,12 @@ export function isDashboardRoute(pathname: string): boolean {
   return pathname.startsWith("/dashboard");
 }
 
+/** Auth pages that logged-in users must not access */
+export function isGuestOnlyAuthRoute(pathname: string): boolean {
+  return isAuthRoute(pathname);
+}
+
+/** @deprecated Use isGuestOnlyAuthRoute */
 export function isPublicOnlyAuthRoute(pathname: string): boolean {
-  return (
-    pathname === AUTH_ROUTES.signIn || pathname === AUTH_ROUTES.signUp
-  );
+  return isGuestOnlyAuthRoute(pathname);
 }

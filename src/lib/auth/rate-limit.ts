@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/redis";
 const SENSITIVE_AUTH_PATHS = [
   "/api/auth/sign-in/email",
   "/api/auth/sign-up/email",
-  "/api/auth/forget-password",
+  "/api/auth/request-password-reset",
   "/api/auth/reset-password",
 ];
 

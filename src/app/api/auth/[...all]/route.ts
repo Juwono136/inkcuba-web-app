@@ -14,20 +14,25 @@ async function validateSignUpPassword(
 ): Promise<Response | null> {
   const { pathname } = new URL(request.url);
 
-  if (!pathname.endsWith("/sign-up/email")) {
+  if (
+    !pathname.endsWith("/sign-up/email") &&
+    !pathname.endsWith("/reset-password")
+  ) {
     return null;
   }
 
   const body = (await request
     .clone()
     .json()
-    .catch(() => null)) as { password?: string } | null;
+    .catch(() => null)) as { password?: string; newPassword?: string } | null;
 
-  if (!body?.password) {
+  const password = body?.password ?? body?.newPassword;
+
+  if (!password) {
     return null;
   }
 
-  const result = validatePasswordStrength(body.password);
+  const result = validatePasswordStrength(password);
 
   if (!result.valid) {
     return Response.json(

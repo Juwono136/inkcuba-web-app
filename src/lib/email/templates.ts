@@ -55,28 +55,42 @@ export function resetPasswordEmailTemplate(url: string, name: string): string {
   const safeName = escapeHtml(name);
 
   return buildEmailLayout({
-    preheader: "Reset your inkcuba account password.",
+    preheader: "Reset your inkcuba account password securely.",
     title: "Reset your password",
     body: `
       <p style="margin:0 0 16px;">Hello <strong>${safeName}</strong>,</p>
       <p style="margin:0 0 16px;">
-        We received a request to reset the password for your ${escapeHtml(siteConfig.name)} account.
-        Click the button below to choose a new password.
+        We received a request to reset the password for your <strong>${escapeHtml(siteConfig.name)}</strong> account
+        linked to your BINUS institutional email.
       </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#475569;">
+            <strong style="color:#0F172A;">Security notice</strong><br />
+            This link expires in <strong>1 hour</strong>. After resetting, all active sessions will be signed out for your protection.
+          </td>
+        </tr>
+      </table>
       <p style="margin:0;font-size:14px;color:#64748B;">
-        If you did not request a password reset, you can safely ignore this email.
+        Click the button below to set a new password. If you did not request this, you can safely ignore this email.
       </p>
     `,
     ctaLabel: "Reset Password",
     ctaUrl: url,
+    footerNote:
+      "Never share this link with anyone. inkcuba staff will never ask for your password.",
   });
 }
 
 export function resetPasswordEmailText(url: string, name: string): string {
   return `Hello ${name},
 
-Reset your ${siteConfig.name} password using the link below:
+We received a request to reset your ${siteConfig.name} password.
+
+Reset your password using the link below (expires in 1 hour):
 ${url}
+
+After resetting, all active sessions will be signed out.
 
 If you did not request this, you can ignore this email.
 

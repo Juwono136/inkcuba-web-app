@@ -8,7 +8,7 @@ import {
 import {
   getDashboardPath,
   isDashboardRoute,
-  isPublicOnlyAuthRoute,
+  isGuestOnlyAuthRoute,
 } from "@/lib/auth/redirect";
 
 function hasSessionCookie(request: NextRequest): boolean {
@@ -19,7 +19,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAuthenticated = hasSessionCookie(request);
 
-  if (isPublicOnlyAuthRoute(pathname) && isAuthenticated) {
+  if (isGuestOnlyAuthRoute(pathname) && isAuthenticated) {
     return NextResponse.redirect(
       new URL(getDashboardPath(), request.url),
     );
