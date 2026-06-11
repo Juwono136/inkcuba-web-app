@@ -1,11 +1,19 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { PortfolioSearchDialog } from "@/components/search/portfolio-search-dialog";
 import { Toaster } from "@/components/ui/sonner";
+
+const SessionWatcher = dynamic(
+  () =>
+    import("@/components/providers/session-watcher").then(
+      (module) => module.SessionWatcher,
+    ),
+  { ssr: false },
+);
 
 type AppProvidersProps = {
   children: React.ReactNode;
@@ -30,16 +38,10 @@ export function AppProviders({ children }: AppProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="light"
-        enableSystem
-        disableTransitionOnChange
-      >
-        {children}
-        <PortfolioSearchDialog />
-        <Toaster richColors closeButton position="top-right" />
-      </ThemeProvider>
+      {children}
+      <SessionWatcher />
+      <PortfolioSearchDialog />
+      <Toaster richColors closeButton position="top-center" />
     </QueryClientProvider>
   );
 }

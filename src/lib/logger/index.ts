@@ -31,7 +31,6 @@ export const logger = pino({
       "authorization",
       "cookie",
       "SMTP_PASS",
-      "FIREBASE_PRIVATE_KEY",
       "PASSWORD_STORAGE",
       "HEALTH_CHECK_TOKEN",
     ],

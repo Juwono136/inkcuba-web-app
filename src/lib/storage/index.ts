@@ -1,11 +1,20 @@
 export {
   uploadObject,
+  fetchObject,
   deleteObject,
   sanitizeFileName,
   buildStorageKey,
   checkStorageHealth,
   ensureStorageBucket,
 } from "@/lib/storage/client";
+export {
+  uploadAvatarToStorage,
+  validateAvatarUpload,
+  deleteRegisterAvatar,
+  isRegisterAvatarKey,
+  sanitizeEmailForStorageKey,
+  type AvatarUploadInput,
+} from "@/lib/storage/avatar";
 export {
   ALLOWED_IMAGE_MIME_TYPES,
   ALLOWED_DOCUMENT_MIME_TYPES,

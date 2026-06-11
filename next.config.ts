@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
     "pino",
     "pino-pretty",
     "nodemailer",
-    "firebase-admin",
     "ioredis",
   ],
   images: {

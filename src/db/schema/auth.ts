@@ -19,6 +19,7 @@ export const user = pgTable(
     role: userRoleEnum("role").default("STUDENT").notNull(),
     nim: text("nim"),
     nidn: text("nidn"),
+    campus: text("campus"),
     isActive: boolean("is_active").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -31,6 +32,7 @@ export const user = pgTable(
     index("user_role_idx").on(table.role),
     index("user_nim_idx").on(table.nim),
     index("user_nidn_idx").on(table.nidn),
+    index("user_campus_idx").on(table.campus),
   ],
 );
 

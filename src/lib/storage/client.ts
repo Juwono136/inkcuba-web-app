@@ -74,6 +74,28 @@ export async function uploadObject(
   };
 }
 
+export async function fetchObject(
+  key: string,
+): Promise<{ body: Buffer; mimeType: string }> {
+  const url = buildObjectUrl(key);
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: getAuthHeader(),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Storage fetch failed: ${response.status}`);
+  }
+
+  const body = Buffer.from(await response.arrayBuffer());
+  const mimeType =
+    response.headers.get("content-type") ?? "application/octet-stream";
+
+  return { body, mimeType };
+}
+
 export async function deleteObject(key: string): Promise<void> {
   const url = buildObjectUrl(key);
   const response = await fetch(url, {

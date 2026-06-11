@@ -1,17 +1,25 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Search, X } from "lucide-react";
 import { useState } from "react";
 
 import { BrandLogo } from "@/components/layout/brand-logo";
-import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { isNavActive } from "@/lib/navigation";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
+
+const AuthNavActions = dynamic(
+  () =>
+    import("@/components/layout/auth-nav-actions").then(
+      (module) => module.AuthNavActions,
+    ),
+  { ssr: false },
+);
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -76,21 +84,7 @@ export function SiteHeader() {
             </kbd>
           </button>
 
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="hidden border-slate-900 sm:inline-flex"
-          >
-            <Link href={siteConfig.links.signIn}>Sign In</Link>
-          </Button>
-          <Button
-            asChild
-            size="sm"
-            className="hidden bg-sky-500 shadow-inkcuba hover:bg-sky-600 hover:shadow-inkcuba-hover sm:inline-flex"
-          >
-            <Link href={siteConfig.links.signUp}>Get Started</Link>
-          </Button>
+          <AuthNavActions />
 
           <button
             type="button"
@@ -137,14 +131,10 @@ export function SiteHeader() {
                 Search portfolios
               </button>
 
-              <div className="grid grid-cols-2 gap-2 pt-3">
-                <Button asChild variant="outline" className="w-full border-slate-900">
-                  <Link href={siteConfig.links.signIn}>Sign In</Link>
-                </Button>
-                <Button asChild className="w-full bg-sky-500 hover:bg-sky-600">
-                  <Link href={siteConfig.links.signUp}>Get Started</Link>
-                </Button>
-              </div>
+              <AuthNavActions
+                mobileOpen
+                onMobileNavigate={() => setMobileOpen(false)}
+              />
             </div>
           </motion.div>
         ) : null}

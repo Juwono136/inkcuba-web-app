@@ -7,15 +7,13 @@ import { getServerEnv } from "@/config/env";
 import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/constants";
 import {
   inferRoleFromEmail,
   validateInstitutionalEmail,
 } from "@/lib/auth/permissions";
-import {
-  resetPasswordEmailTemplate,
-  sendEmail,
-  verificationEmailTemplate,
-} from "@/lib/email";
+import { sendResetPasswordEmail } from "@/lib/email/services/reset-password";
+import { sendVerificationEmail } from "@/lib/email/services/verification";
 
 let authInstance: ReturnType<typeof betterAuth> | undefined;
 
@@ -37,7 +35,7 @@ function createAuthConfig(): BetterAuthOptions {
     }),
     trustedOrigins: [siteConfig.appUrl, siteConfig.url],
     session: {
-      expiresIn: 60 * 60 * 24 * 7,
+      expiresIn: SESSION_MAX_AGE_SECONDS,
       updateAge: 60 * 60 * 24,
       cookieCache: {
         enabled: true,
@@ -55,11 +53,10 @@ function createAuthConfig(): BetterAuthOptions {
       maxPasswordLength: 128,
       autoSignIn: false,
       sendResetPassword: async ({ user, url }) => {
-        await sendEmail({
-          to: user.email,
-          subject: "Reset Password — inkcuba",
-          html: resetPasswordEmailTemplate(url, user.name),
-          text: `Reset password inkcuba: ${url}`,
+        await sendResetPasswordEmail({
+          email: user.email,
+          name: user.name,
+          resetUrl: url,
         });
       },
     },
@@ -67,11 +64,10 @@ function createAuthConfig(): BetterAuthOptions {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        await sendEmail({
-          to: user.email,
-          subject: "Verifikasi Email — inkcuba",
-          html: verificationEmailTemplate(url, user.name),
-          text: `Verifikasi email inkcuba: ${url}`,
+        await sendVerificationEmail({
+          email: user.email,
+          name: user.name,
+          verificationUrl: url,
         });
       },
     },
@@ -89,6 +85,11 @@ function createAuthConfig(): BetterAuthOptions {
           input: true,
         },
         nidn: {
+          type: "string",
+          required: false,
+          input: true,
+        },
+        campus: {
           type: "string",
           required: false,
           input: true,

@@ -37,7 +37,7 @@ export function SiteFooter() {
       </div>
 
       <div className="border-t border-slate-100 py-4 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} inkcuba. Built for BINUS University.
+        © {new Date().getFullYear()} inkcuba. Copyright reserved.
       </div>
     </footer>
   );

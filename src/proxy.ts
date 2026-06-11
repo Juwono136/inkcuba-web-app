@@ -1,7 +1,36 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import {
+  AUTH_COOKIE_PREFIX,
+  AUTH_ROUTES,
+} from "@/lib/auth/constants";
+import {
+  getDashboardPath,
+  isDashboardRoute,
+  isPublicOnlyAuthRoute,
+} from "@/lib/auth/redirect";
+
+function hasSessionCookie(request: NextRequest): boolean {
+  return Boolean(request.cookies.get(`${AUTH_COOKIE_PREFIX}.session_token`)?.value);
+}
+
 export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const isAuthenticated = hasSessionCookie(request);
+
+  if (isPublicOnlyAuthRoute(pathname) && isAuthenticated) {
+    return NextResponse.redirect(
+      new URL(getDashboardPath(), request.url),
+    );
+  }
+
+  if (isDashboardRoute(pathname) && !isAuthenticated) {
+    const signInUrl = new URL(AUTH_ROUTES.signIn, request.url);
+    signInUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(signInUrl);
+  }
+
   const response = NextResponse.next();
 
   response.headers.set("X-Frame-Options", "DENY");
@@ -12,7 +41,7 @@ export function proxy(request: NextRequest) {
     "camera=(), microphone=(), geolocation=()",
   );
 
-  if (request.nextUrl.pathname.startsWith("/api/")) {
+  if (pathname.startsWith("/api/")) {
     response.headers.set("X-API-Route", "true");
   }
 

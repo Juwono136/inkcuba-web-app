@@ -18,9 +18,6 @@ const serverEnvSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((v) => v === "true"),
-  FIREBASE_PROJECT_ID: z.string().min(1),
-  FIREBASE_CLIENT_EMAIL: z.string().email(),
-  FIREBASE_PRIVATE_KEY: z.string().min(1),
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int().positive(),
   SMTP_USER: z.string().email(),
@@ -64,9 +61,6 @@ export function getServerEnv() {
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
       BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
       AUTH_LOCKOUT_ENABLED: process.env.AUTH_LOCKOUT_ENABLED,
-      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-      FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
-      FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
       SMTP_HOST: process.env.SMTP_HOST,
       SMTP_PORT: process.env.SMTP_PORT,
       SMTP_USER: process.env.SMTP_USER,

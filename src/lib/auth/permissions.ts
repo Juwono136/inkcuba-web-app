@@ -37,3 +37,16 @@ export function validateInstitutionalEmail(email: string): void {
     );
   }
 }
+
+const USER_ROLES: UserRole[] = ["STUDENT", "LECTURER", "ADMIN", "SUPER_ADMIN"];
+
+export function resolveUserRole(user: {
+  email: string;
+  role?: string | null;
+}): UserRole {
+  if (user.role && USER_ROLES.includes(user.role as UserRole)) {
+    return user.role as UserRole;
+  }
+
+  return inferRoleFromEmail(user.email);
+}
