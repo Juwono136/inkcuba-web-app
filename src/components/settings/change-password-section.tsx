@@ -38,7 +38,7 @@ export function ChangePasswordSection({ email }: ChangePasswordSectionProps) {
     });
   }
 
-  function validate(): boolean {
+  function validate(): { ok: true } | { ok: false; message: string } {
     const parsed = changePasswordSchema.safeParse({
       currentPassword,
       newPassword,
@@ -52,16 +52,20 @@ export function ChangePasswordSection({ email }: ChangePasswordSectionProps) {
         if (!next[key]) next[key] = issue.message;
       }
       setErrors(next);
-      return false;
+      const message =
+        parsed.error.issues[0]?.message ??
+        "Please check your password fields and try again.";
+      return { ok: false, message };
     }
 
     setErrors({});
-    return true;
+    return { ok: true };
   }
 
   function handleRequestChange() {
-    if (!validate()) {
-      toast.error("Please fix the password form errors");
+    const result = validate();
+    if (!result.ok) {
+      toast.error(result.message);
       return;
     }
 

@@ -40,12 +40,6 @@ export function SettingsPageClient({
 
       {settings.canEditPublicProfile && settings.publicProfile ? (
         <PublicProfileSection
-          key={[
-            settings.publicProfile.bio,
-            settings.publicProfile.skills.join("|"),
-            settings.publicProfile.linkedinUrl,
-            settings.publicProfile.githubUrl,
-          ].join("::")}
           initialProfile={settings.publicProfile}
           onSaved={setSettings}
         />

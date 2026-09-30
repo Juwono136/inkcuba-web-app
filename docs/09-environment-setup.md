@@ -90,7 +90,7 @@ See `.env.example` for the canonical list.
 
 | Key | Purpose |
 |---|---|
-| `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` |
+| `LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` (production logs are JSON via pino; pretty-print only in development) |
 | `HEALTH_CHECK_TOKEN` | Token for detailed health endpoint |
 
 ### Next.js `.env` gotcha
@@ -112,7 +112,7 @@ If a value contains `$`, escape it as `\$`. Next.js expands `$VAR` inside env fi
 | `npm run db:push` | Push schema (dev) |
 | `npm run db:studio` | Drizzle Studio |
 | `npm run db:seed-admin` | Create admin user |
-| `npm run generate:favicon` | Rebuild favicon/icons |
+| `npm run generate:favicon` | Rebuild `icon.png` / `apple-icon.png` (PNG favicons; no `.ico`) |
 
 ---
 
@@ -151,6 +151,7 @@ Password must satisfy strength rules (upper + lower + number, min 8).
 | `column "campus" does not exist` | Run `npm run db:migrate` |
 | Avatar broken on dashboard | Ensure storage up + media proxy works |
 | Auth pages 500 during Fast Refresh | Restart `npm run dev` |
+| Auth / API routes 404 while `/` still works | Stop server, delete `.next`, run `npm run dev` again (corrupted route cache) |
 | No emails | Verify SMTP App Password and port |
 | Rate limit 429 | Wait retry window or check Redis |
 | Reset link invalid | Confirm `NEXT_PUBLIC_APP_URL` matches actual origin |

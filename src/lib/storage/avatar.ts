@@ -167,7 +167,11 @@ async function normalizeAvatarBuffer(input: {
   }
 
   try {
-    const converted = await sharp(input.buffer).jpeg({ quality: 90 }).toBuffer();
+    const converted = await sharp(input.buffer, { failOn: "none" })
+      .rotate()
+      .toColorspace("srgb")
+      .jpeg({ quality: 90, mozjpeg: true })
+      .toBuffer();
 
     return {
       buffer: converted,

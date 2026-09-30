@@ -33,42 +33,36 @@ inkcuba uses **Better Auth** with email/password only. Institutional email valid
 |---|---|
 | Full name | 2–100 characters |
 | Email | `@binus.edu` or `@binus.ac.id` |
-| BINUSIAN ID | Alphanumeric, 5–20 chars (stored as `nim` for students, `nidn` for lecturers) |
-| Campus | One of 9 BINUS campuses |
+| BINUSIAN ID | Alphanumeric, 5–20 chars (stored as `nim`; self-signup is always STUDENT) |
+| Campus | One of the official BINUS campus labels |
 | Password | Min 8 chars + 1 uppercase + 1 lowercase + 1 number |
 | Confirm password | Must match |
 
-### Optional fields
+### Profile photo
 
-| Field | Behavior |
-|---|---|
-| Profile image | JPG/PNG/WebP, max 2MB. Uploaded to SeaweedFS **only after successful form validation on submit**. If skipped, Dicebear default avatar is used. |
+Not collected on sign-up. A Dicebear default avatar is assigned. Users change their photo later in **My Settings**.
 
 ### Campuses
 
-- Anggrek Campus  
-- Syahdan Campus  
-- Alam Sutera Campus  
-- Senayan Campus (JWC Campus)  
-- FX Sudirman Campus  
-- Bekasi Campus  
-- Bandung Campus  
-- Malang Campus  
-- Semarang Campus  
+See `BINUS_CAMPUSES` in `src/lib/auth/constants.ts` (e.g. BINUS @Kemanggisan, BINUS @Alam Sutera, …).
+
+### Role assignment
+
+- Public sign-up always sets `role = STUDENT` (server `databaseHooks.user.create.before`).
+- `LECTURER` / `ADMIN` are assigned later by operators (seed / Admin User Management).
 
 ### Post-registration
 
 1. Account is created with `emailVerified = false`.
-2. Verification email is sent automatically.
-3. User cannot sign in until email is verified.
-4. UI redirects to `/auth/sign-in` with success toast.
+2. Verification email is sent automatically (`sendOnSignUp: true`).
+3. Better Auth `requireEmailVerification: true` + `autoSignIn: false` — user **cannot** sign in until the email link is confirmed.
+4. UI redirects to `/auth/sign-in?registered=1` with guidance toast.
 
 ### Security details
 
 - Server-side institutional email validation in Better Auth `databaseHooks.user.create.before`
 - Password strength enforced on client (Zod) and server (auth API middleware for sign-up / reset)
-- Avatar upload is rate-limited
-- Failed registration after avatar upload triggers cleanup delete
+- No registration-time storage upload (avatars are managed in Settings)
 
 ---
 
@@ -98,10 +92,12 @@ If checkbox is unchecked on successful login, remembered credentials are cleared
 ## Email verification
 
 - Enabled: `requireEmailVerification: true`
+- Sign-up does **not** auto-login: `autoSignIn: false`
 - Sent on sign-up: `sendOnSignUp: true`
-- After verification: `autoSignInAfterVerification: true`
+- After verification: `autoSignInAfterVerification: true` (session starts only after the email link is confirmed)
 - Template: professional HTML + plain text (`src/lib/email/templates.ts`)
 - Service wrapper: `sendVerificationEmail`
+- Sign-in UI surfaces a clear “verify your email” toast when Better Auth rejects unverified credentials
 
 ---
 

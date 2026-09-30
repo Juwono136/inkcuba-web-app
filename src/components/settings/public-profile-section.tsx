@@ -7,7 +7,16 @@ import { toast } from "sonner";
 import { RichTextEditor } from "@/components/settings/rich-text-editor";
 import { SettingsSectionCard } from "@/components/settings/settings-section-card";
 import { SocialLinksPreview } from "@/components/settings/social-links-preview";
+import {
+  GitHubIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  XTwitterIcon,
+  YouTubeIcon,
+} from "@/components/icons/social-brand-icons";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type {
@@ -21,6 +30,11 @@ type PublicProfileSectionProps = {
   initialProfile: SettingsPublicProfile;
   onSaved: (settings: SettingsPayload) => void;
 };
+
+type PendingRemoval =
+  | { type: "skill"; value: string }
+  | { type: "portfolio"; index: number }
+  | null;
 
 export function PublicProfileSection({
   initialProfile,
@@ -44,6 +58,8 @@ export function PublicProfileSection({
   );
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval>(null);
 
   const bioLength = plainTextFromHtml(bio).length;
 
@@ -56,6 +72,11 @@ export function PublicProfileSection({
       return;
     }
 
+    if (next.length > 30) {
+      toast.error("Each skill must be at most 30 characters");
+      return;
+    }
+
     if (skills.some((skill) => skill.toLowerCase() === next.toLowerCase())) {
       toast.error("Skill already added");
       return;
@@ -65,7 +86,7 @@ export function PublicProfileSection({
     setSkillDraft("");
   }
 
-  async function handleSave() {
+  function requestSave() {
     setErrors({});
 
     const payload = {
@@ -99,6 +120,43 @@ export function PublicProfileSection({
       return;
     }
 
+    setConfirmSaveOpen(true);
+  }
+
+  async function handleSave() {
+    setErrors({});
+
+    const payload = {
+      bio,
+      skills,
+      linkedinUrl: linkedinUrl || undefined,
+      githubUrl: githubUrl || undefined,
+      instagramUrl: instagramUrl || undefined,
+      youtubeUrl: youtubeUrl || undefined,
+      twitterUrl: twitterUrl || undefined,
+      tiktokUrl: tiktokUrl || undefined,
+      portfolioUrls: portfolioUrls.map((url) => url.trim()).filter(Boolean),
+    };
+
+    const parsed = publicProfileSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? "form");
+        if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+      }
+      setErrors(fieldErrors);
+      toast.error(parsed.error.issues[0]?.message ?? "Please fix the form errors");
+      throw new Error(parsed.error.issues[0]?.message ?? "Invalid profile");
+    }
+
+    if (bioLength > 2000) {
+      setErrors({ bio: "Bio must be at most 2000 characters" });
+      toast.error("Bio must be at most 2000 characters");
+      throw new Error("Bio must be at most 2000 characters");
+    }
+
     setSaving(true);
 
     try {
@@ -124,10 +182,35 @@ export function PublicProfileSection({
       toast.error(
         error instanceof Error ? error.message : "Failed to save profile",
       );
+      throw error;
     } finally {
       setSaving(false);
     }
   }
+
+  function confirmPendingRemoval() {
+    if (!pendingRemoval) return;
+
+    if (pendingRemoval.type === "skill") {
+      setSkills((prev) =>
+        prev.filter((item) => item !== pendingRemoval.value),
+      );
+    } else {
+      setPortfolioUrls((prev) => {
+        const next = prev.filter((_, index) => index !== pendingRemoval.index);
+        return next.length > 0 ? next : [""];
+      });
+    }
+
+    setPendingRemoval(null);
+  }
+
+  const removalDescription =
+    pendingRemoval?.type === "skill"
+      ? `Remove “${pendingRemoval.value}” from your skills list?`
+      : pendingRemoval?.type === "portfolio"
+        ? "Remove this portfolio link from your public profile?"
+        : "";
 
   return (
     <SettingsSectionCard
@@ -150,17 +233,23 @@ export function PublicProfileSection({
           <RichTextEditor value={bio} onChange={setBio} disabled={saving} />
           {errors.bio ? (
             <p className="text-xs text-red-500">{errors.bio}</p>
-          ) : null}
+          ) : (
+            <p className="text-xs text-slate-500">
+              Use bold, italic, lists, and links. Plain text is limited to 2,000
+              characters.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label>Skills</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               value={skillDraft}
               onChange={(event) => setSkillDraft(event.target.value)}
               placeholder="e.g. React"
               disabled={saving}
+              maxLength={30}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
@@ -172,8 +261,8 @@ export function PublicProfileSection({
               type="button"
               variant="outline"
               onClick={addSkill}
-              disabled={saving}
-              className="border-slate-900"
+              disabled={saving || !skillDraft.trim()}
+              className="border-slate-900 sm:shrink-0"
             >
               <Plus className="h-4 w-4" />
               Add
@@ -186,17 +275,21 @@ export function PublicProfileSection({
                   key={skill}
                   type="button"
                   onClick={() =>
-                    setSkills((prev) => prev.filter((item) => item !== skill))
+                    setPendingRemoval({ type: "skill", value: skill })
                   }
                   disabled={saving}
-                  className="inline-flex items-center gap-1 rounded-xl border-2 border-slate-900 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-slate-800"
+                  className="inline-flex items-center gap-1 rounded-xl border-2 border-slate-900 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-slate-800 transition-colors hover:bg-sky-100"
                 >
                   {skill}
                   <X className="h-3 w-3" />
                 </button>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <p className="text-xs text-slate-500">
+              Add up to 10 skills that appear on your profile.
+            </p>
+          )}
           {errors.skills ? (
             <p className="text-xs text-red-500">{errors.skills}</p>
           ) : null}
@@ -205,6 +298,7 @@ export function PublicProfileSection({
         <div className="grid gap-4 sm:grid-cols-2">
           <UrlField
             label="LinkedIn"
+            icon={<LinkedInIcon />}
             value={linkedinUrl}
             onChange={setLinkedinUrl}
             error={errors.linkedinUrl}
@@ -213,6 +307,7 @@ export function PublicProfileSection({
           />
           <UrlField
             label="GitHub"
+            icon={<GitHubIcon />}
             value={githubUrl}
             onChange={setGithubUrl}
             error={errors.githubUrl}
@@ -221,6 +316,7 @@ export function PublicProfileSection({
           />
           <UrlField
             label="Instagram"
+            icon={<InstagramIcon />}
             value={instagramUrl}
             onChange={setInstagramUrl}
             error={errors.instagramUrl}
@@ -229,6 +325,7 @@ export function PublicProfileSection({
           />
           <UrlField
             label="YouTube"
+            icon={<YouTubeIcon />}
             value={youtubeUrl}
             onChange={setYoutubeUrl}
             error={errors.youtubeUrl}
@@ -237,6 +334,7 @@ export function PublicProfileSection({
           />
           <UrlField
             label="X (Twitter)"
+            icon={<XTwitterIcon />}
             value={twitterUrl}
             onChange={setTwitterUrl}
             error={errors.twitterUrl}
@@ -245,6 +343,7 @@ export function PublicProfileSection({
           />
           <UrlField
             label="TikTok"
+            icon={<TikTokIcon />}
             value={tiktokUrl}
             onChange={setTiktokUrl}
             error={errors.tiktokUrl}
@@ -266,19 +365,25 @@ export function PublicProfileSection({
                 }}
                 placeholder="https://..."
                 disabled={saving}
+                aria-invalid={Boolean(errors.portfolioUrls)}
               />
               {portfolioUrls.length > 1 ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="border-slate-900"
+                  className="shrink-0 border-slate-900"
                   disabled={saving}
-                  onClick={() =>
+                  aria-label={`Remove portfolio link ${index + 1}`}
+                  onClick={() => {
+                    if (url.trim()) {
+                      setPendingRemoval({ type: "portfolio", index });
+                      return;
+                    }
                     setPortfolioUrls((prev) =>
                       prev.filter((_, itemIndex) => itemIndex !== index),
-                    )
-                  }
+                    );
+                  }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -320,7 +425,7 @@ export function PublicProfileSection({
 
         <Button
           type="button"
-          onClick={() => void handleSave()}
+          onClick={requestSave}
           disabled={saving}
           className="bg-sky-500 shadow-inkcuba hover:bg-sky-600"
         >
@@ -328,12 +433,39 @@ export function PublicProfileSection({
           {saving ? "Saving…" : "Save public profile"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmSaveOpen}
+        onOpenChange={setConfirmSaveOpen}
+        title="Save public profile?"
+        description="Your bio, skills, and social links will be updated on your public exhibition profile."
+        confirmLabel="Save profile"
+        loading={saving}
+        onConfirm={handleSave}
+      />
+
+      <ConfirmDialog
+        open={pendingRemoval != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoval(null);
+        }}
+        title={
+          pendingRemoval?.type === "skill"
+            ? "Remove skill?"
+            : "Remove portfolio link?"
+        }
+        description={removalDescription}
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={confirmPendingRemoval}
+      />
     </SettingsSectionCard>
   );
 }
 
 function UrlField({
   label,
+  icon,
   value,
   onChange,
   error,
@@ -341,6 +473,7 @@ function UrlField({
   placeholder,
 }: {
   label: string;
+  icon?: React.ReactNode;
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -349,7 +482,10 @@ function UrlField({
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label className="inline-flex items-center gap-2">
+        {icon}
+        {label}
+      </Label>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}

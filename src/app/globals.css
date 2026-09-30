@@ -154,3 +154,54 @@
 @utility font-heading {
   font-family: var(--font-heading), var(--font-sans), sans-serif;
 }
+
+/* TipTap / ProseMirror — settings bio editor */
+.inkcuba-rich-text.ProseMirror {
+  min-height: 140px;
+}
+
+.inkcuba-rich-text.ProseMirror p {
+  margin: 0.35em 0;
+}
+
+.inkcuba-rich-text.ProseMirror p:first-child {
+  margin-top: 0;
+}
+
+.inkcuba-rich-text.ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.inkcuba-rich-text.ProseMirror ul {
+  list-style: disc;
+  margin: 0.35em 0;
+  padding-left: 1.25rem;
+}
+
+.inkcuba-rich-text.ProseMirror ol {
+  list-style: decimal;
+  margin: 0.35em 0;
+  padding-left: 1.25rem;
+}
+
+.inkcuba-rich-text.ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.inkcuba-rich-text.ProseMirror li p {
+  margin: 0;
+}
+
+.inkcuba-rich-text.ProseMirror a {
+  color: #0284c7;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.inkcuba-rich-text.ProseMirror strong {
+  font-weight: 700;
+}
+
+.inkcuba-rich-text.ProseMirror em {
+  font-style: italic;
+}

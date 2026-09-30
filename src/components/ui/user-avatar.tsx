@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   getUserInitials,
@@ -31,6 +31,11 @@ export function UserAvatar({
   const resolvedSrc = resolveUserImageUrl(image);
   const config = sizeMap[size];
 
+  // Reset error state whenever the image URL changes (e.g. after settings upload).
+  useEffect(() => {
+    setHasError(false);
+  }, [resolvedSrc]);
+
   if (!resolvedSrc || hasError) {
     return (
       <span
@@ -50,6 +55,7 @@ export function UserAvatar({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      key={resolvedSrc}
       src={resolvedSrc}
       alt={name}
       width={size === "lg" ? 48 : size === "md" ? 40 : 32}

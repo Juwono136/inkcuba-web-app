@@ -7,6 +7,7 @@ import { MobileUserAccountActions, UserMenu } from "@/components/layout/user-men
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { siteConfig } from "@/config/site";
+import { useLiveSessionUser } from "@/hooks/use-live-session-user";
 import { useSession } from "@/lib/auth/client";
 import { getDashboardPath, getSettingsPath } from "@/lib/auth/redirect";
 import { resolveUserRole } from "@/lib/auth/permissions";
@@ -22,8 +23,13 @@ export function AuthNavActions({
   onMobileNavigate,
 }: AuthNavActionsProps) {
   const { data: session, isPending } = useSession();
-  const user = session?.user;
-  const isAuthenticated = Boolean(user);
+  const liveUser = useLiveSessionUser({
+    name: session?.user?.name ?? "",
+    email: session?.user?.email ?? "",
+    image: session?.user?.image ?? null,
+    role: session?.user?.role ?? null,
+  });
+  const isAuthenticated = Boolean(session?.user);
 
   if (isPending) {
     if (mobileOpen) {
@@ -33,8 +39,8 @@ export function AuthNavActions({
     return <div className="hidden h-10 w-10 animate-pulse rounded-full bg-slate-100 sm:block" />;
   }
 
-  if (isAuthenticated && user) {
-    const role = resolveUserRole(user);
+  if (isAuthenticated && session?.user) {
+    const role = resolveUserRole(liveUser);
     const dashboardPath = getDashboardPath(role);
     const settingsPath = getSettingsPath(role);
 
@@ -42,12 +48,12 @@ export function AuthNavActions({
       return (
         <div className="mt-3 space-y-3 rounded-2xl border-2 border-slate-900 bg-slate-50 p-4 shadow-inkcuba">
           <div className="flex items-center gap-3">
-            <UserAvatar name={user.name} image={user.image} size="lg" />
+            <UserAvatar name={liveUser.name} image={liveUser.image} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-900">
-                {user.name}
+                {liveUser.name}
               </p>
-              <p className="truncate text-xs text-slate-500">{user.email}</p>
+              <p className="truncate text-xs text-slate-500">{liveUser.email}</p>
               <span className="mt-1 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
                 {formatUserRole(role)}
               </span>
@@ -69,14 +75,14 @@ export function AuthNavActions({
             </Button>
           </div>
 
-          <MobileUserAccountActions user={user} onNavigate={onMobileNavigate} />
+          <MobileUserAccountActions user={liveUser} onNavigate={onMobileNavigate} />
         </div>
       );
     }
 
     return (
       <div className="hidden sm:block">
-        <UserMenu user={user} />
+        <UserMenu user={liveUser} />
       </div>
     );
   }

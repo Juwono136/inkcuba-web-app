@@ -1,6 +1,16 @@
 "use client";
 
-import { Globe, Link2 } from "lucide-react";
+import { Link2 } from "lucide-react";
+
+import {
+  GitHubIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  PortfolioLinkIcon,
+  TikTokIcon,
+  XTwitterIcon,
+  YouTubeIcon,
+} from "@/components/icons/social-brand-icons";
 
 type SocialLinksPreviewProps = {
   linkedinUrl?: string | null;
@@ -12,16 +22,11 @@ type SocialLinksPreviewProps = {
   portfolioUrls?: string[];
 };
 
-function BrandMark({ label }: { label: string }) {
-  return (
-    <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-slate-900 bg-white text-[9px] font-bold tracking-tight text-slate-800"
-      aria-hidden
-    >
-      {label}
-    </span>
-  );
-}
+type PreviewLink = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+};
 
 export function SocialLinksPreview({
   linkedinUrl,
@@ -32,37 +37,37 @@ export function SocialLinksPreview({
   tiktokUrl,
   portfolioUrls = [],
 }: SocialLinksPreviewProps) {
-  const links = [
+  const links: PreviewLink[] = [
     linkedinUrl
-      ? { href: linkedinUrl, label: "LinkedIn", icon: <BrandMark label="in" /> }
+      ? { href: linkedinUrl, label: "LinkedIn", icon: <LinkedInIcon /> }
       : null,
     githubUrl
-      ? { href: githubUrl, label: "GitHub", icon: <BrandMark label="GH" /> }
+      ? { href: githubUrl, label: "GitHub", icon: <GitHubIcon /> }
       : null,
     instagramUrl
-      ? { href: instagramUrl, label: "Instagram", icon: <BrandMark label="IG" /> }
+      ? { href: instagramUrl, label: "Instagram", icon: <InstagramIcon /> }
       : null,
     youtubeUrl
-      ? { href: youtubeUrl, label: "YouTube", icon: <BrandMark label="YT" /> }
+      ? { href: youtubeUrl, label: "YouTube", icon: <YouTubeIcon /> }
       : null,
     twitterUrl
-      ? { href: twitterUrl, label: "X", icon: <BrandMark label="X" /> }
+      ? { href: twitterUrl, label: "X", icon: <XTwitterIcon /> }
       : null,
     tiktokUrl
-      ? { href: tiktokUrl, label: "TikTok", icon: <BrandMark label="TT" /> }
+      ? { href: tiktokUrl, label: "TikTok", icon: <TikTokIcon /> }
       : null,
     ...portfolioUrls.filter(Boolean).map((href, index) => ({
       href,
       label: `Portfolio ${index + 1}`,
-      icon: <Globe className="h-4 w-4" />,
+      icon: <PortfolioLinkIcon />,
     })),
-  ].filter(Boolean) as { href: string; label: string; icon: React.ReactNode }[];
+  ].filter(Boolean) as PreviewLink[];
 
   if (links.length === 0) {
     return (
       <p className="flex items-center gap-2 text-xs text-slate-500">
         <Link2 className="h-3.5 w-3.5" />
-        Saved social links will appear here with brand marks.
+        Saved social links will appear here with their brand icons.
       </p>
     );
   }
@@ -75,7 +80,7 @@ export function SocialLinksPreview({
           href={link.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl border-2 border-slate-900 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-800 transition-colors hover:bg-sky-50"
+          className="inline-flex items-center gap-2 rounded-xl border-2 border-slate-900 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition-colors hover:bg-sky-50"
         >
           {link.icon}
           {link.label}

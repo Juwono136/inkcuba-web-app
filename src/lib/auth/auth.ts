@@ -8,10 +8,7 @@ import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/constants";
-import {
-  inferRoleFromEmail,
-  validateInstitutionalEmail,
-} from "@/lib/auth/permissions";
+import { validateInstitutionalEmail } from "@/lib/auth/permissions";
 import { sendResetPasswordEmail } from "@/lib/email/services/reset-password";
 import { sendVerificationEmail } from "@/lib/email/services/verification";
 
@@ -109,12 +106,13 @@ function createAuthConfig(): BetterAuthOptions {
         create: {
           before: async (user) => {
             validateInstitutionalEmail(user.email);
-            const role = inferRoleFromEmail(user.email);
 
+            // Self-service registration is always STUDENT.
+            // LECTURER / ADMIN are assigned later via Admin User Management (or seed).
             return {
               data: {
                 ...user,
-                role,
+                role: "STUDENT",
               },
             };
           },

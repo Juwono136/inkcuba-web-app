@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { AvatarUploadField } from "@/components/auth/avatar-upload-field";
 import { PasswordInput } from "@/components/auth/password-input";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { Button } from "@/components/ui/button";
@@ -18,21 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
 import { siteConfig } from "@/config/site";
 import {
   BINUS_CAMPUSES,
   generateDefaultAvatarUrl,
 } from "@/lib/auth/constants";
-import {
-  deleteProfileAvatar,
-  uploadProfileAvatar,
-} from "@/lib/auth/avatar-client";
 import { signUp } from "@/lib/auth/client";
-import { getEmailDomain } from "@/lib/auth/permissions";
 import { signUpSchema } from "@/lib/validators/auth";
-import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
-
-type LoadingStage = "idle" | "uploading" | "creating";
 
 export function SignUpForm() {
   const router = useRouter();
@@ -44,8 +36,7 @@ export function SignUpForm() {
   const [campus, setCampus] = useState<string>("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [loadingStage, setLoadingStage] = useState<LoadingStage>("idle");
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   async function handleSubmit(event: React.FormEvent) {
@@ -75,65 +66,31 @@ export function SignUpForm() {
     }
 
     isSubmittingRef.current = true;
-    let uploadedAvatarKey: string | null = null;
+    setIsLoading(true);
 
     try {
-      let imageUrl = generateDefaultAvatarUrl();
-
-      if (avatarFile) {
-        setLoadingStage("uploading");
-        const uploaded = await uploadProfileAvatar(
-          avatarFile,
-          parsed.data.email,
-        );
-        imageUrl = uploaded.url;
-        uploadedAvatarKey = uploaded.key;
-      }
-
-      setLoadingStage("creating");
-
-      const domain = getEmailDomain(parsed.data.email);
-      const isLecturer = domain === siteConfig.allowedLecturerEmailDomain;
-
       const result = await signUp.email({
         email: parsed.data.email,
         password: parsed.data.password,
         name: parsed.data.name,
-        image: imageUrl,
+        image: generateDefaultAvatarUrl(),
         campus: parsed.data.campus,
-        ...(isLecturer
-          ? { nidn: parsed.data.binusianId }
-          : { nim: parsed.data.binusianId }),
+        // Self-registration is always STUDENT — store BINUSIAN ID as NIM
+        nim: parsed.data.binusianId,
         callbackURL: "/auth/sign-in",
       });
 
       if (result.error) {
-        if (uploadedAvatarKey) {
-          try {
-            await deleteProfileAvatar(uploadedAvatarKey);
-          } catch {
-            // Best-effort cleanup — registration already failed
-          }
-        }
-
         toast.error(result.error.message ?? "Registration failed.");
         return;
       }
 
       toast.success(
-        "Account created! Check your BINUS email inbox to verify your account.",
+        "Account created! Check your BINUS email to verify before signing in.",
       );
-      router.push("/auth/sign-in");
+      router.push(`${siteConfig.links.signIn}?registered=1`);
       router.refresh();
     } catch (error) {
-      if (uploadedAvatarKey) {
-        try {
-          await deleteProfileAvatar(uploadedAvatarKey);
-        } catch {
-          // Best-effort cleanup
-        }
-      }
-
       toast.error(
         error instanceof Error
           ? error.message
@@ -141,27 +98,16 @@ export function SignUpForm() {
       );
     } finally {
       isSubmittingRef.current = false;
-      setLoadingStage("idle");
+      setIsLoading(false);
     }
   }
 
-  if (loadingStage !== "idle") {
-    return (
-      <InkcubaLoader
-        fullScreen
-        label={
-          loadingStage === "uploading"
-            ? "Uploading profile photo..."
-            : "Creating your account..."
-        }
-      />
-    );
+  if (isLoading) {
+    return <InkcubaLoader fullScreen label="Creating your account..." />;
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <AvatarUploadField file={avatarFile} onChange={setAvatarFile} />
-
       <div className="space-y-2">
         <Label htmlFor="name">Full Name</Label>
         <Input
@@ -190,7 +136,12 @@ export function SignUpForm() {
         />
         {errors.email ? (
           <p className="text-xs text-red-500">{errors.email}</p>
-        ) : null}
+        ) : (
+          <p className="text-xs text-slate-500">
+            New accounts start as Student. You must verify this email before
+            signing in.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

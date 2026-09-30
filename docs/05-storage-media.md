@@ -37,38 +37,15 @@ http://localhost:8333/inkcuba/avatars/register/{hash}/{timestamp}-photo.jpg
 
 ## Avatar upload mechanism
 
-### When upload happens
+### Sign-up avatar behavior (current)
 
-- **Not** on file select.
-- Only when sign-up form is submitted and validation succeeds.
+Sign-up **does not** upload a profile photo. The form assigns a Dicebear default via `generateDefaultAvatarUrl()` and users change photos later in My Settings (`/api/settings/avatar`).
 
-### Client flow (`SignUpForm`)
+### Legacy registration upload API (`POST /api/auth/avatar`)
 
-1. Keep selected file in memory + local blob preview.
-2. On submit:
-   - If file exists → `uploadProfileAvatar(file, email)`
-   - Else → `generateDefaultAvatarUrl()` (Dicebear)
-3. Pass resulting URL into Better Auth `signUp.email({ image })`.
-4. If sign-up fails after upload → `deleteProfileAvatar(key)` (best-effort rollback).
-5. Double-submit guarded with `isSubmittingRef`.
+Still available for tooling/compat (JPG/PNG/WebP ≤ 2MB, prefix `avatars/register/`), but the public sign-up UI no longer calls it.
 
-### Server flow (`POST /api/auth/avatar`)
-
-1. Rate limit by IP.
-2. Require valid BINUS email in form body (used for deterministic key namespacing).
-3. Validate MIME (`jpeg|png|webp`), size (≤ 2MB), and magic bytes.
-4. Upload via `uploadAvatarToStorage`.
-5. Return `{ url, key }`.
-
-### Key strategy
-
-Prefix: `avatars/register/`  
-Owner namespace: SHA-256 hash of email (truncated)  
-Filename: sanitized + timestamped
-
-This avoids anonymous orphaned collisions and keeps uploads attributable.
-
-### Delete
+### Delete (legacy)
 
 `DELETE /api/auth/avatar?key=...` only allows keys under `avatars/register/`.
 
@@ -118,9 +95,10 @@ Authenticated users can replace or remove their profile photo from My Settings.
 | Max size | **5 MB** (`MAX_AVATAR_SIZE_BYTES`) |
 | HEIC/HEIF | Converted to JPEG with `sharp` before upload |
 | Key prefix | `avatars/users/{userId}/...` |
-| On replace | Upload new object → update `user.image` → delete previous storage object (no orphans) |
+| On replace | Upload new object → update `user.image` → delete previous storage object (no orphans / no duplicates) |
 | On remove | Delete previous storage object (when key-based); set Dicebear default URL |
 | Source of truth | Previous image key is read from the database (not a stale session cache) |
+| UI | My Settings asks for confirmation before replace (existing custom photo) and before remove; navbar avatar syncs via optimistic event + `getSession({ disableCookieCache: true })` + `router.refresh()` |
 | Rate limit | 10 / 15 minutes / user |
 
 Registration avatar upload (`/api/auth/avatar`) remains **2 MB**, JPG/PNG/WebP only.

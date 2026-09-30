@@ -10,7 +10,7 @@ import {
 } from "@/db/schema/profiles";
 import { resolveUserRole, type UserRole } from "@/lib/auth/permissions";
 import { formatUserRole } from "@/lib/auth/role-labels";
-import { NotFoundError } from "@/lib/api/errors";
+import { AppError, NotFoundError } from "@/lib/api/errors";
 
 export type SettingsIdentity = {
   name: string;
@@ -54,44 +54,62 @@ function emptyOrNull(value: string | null | undefined): string | null {
 }
 
 async function ensureStudentProfile(userId: string) {
-  const existing = await db
-    .select()
-    .from(studentProfile)
-    .where(eq(studentProfile.userId, userId))
-    .limit(1);
+  try {
+    const existing = await db
+      .select()
+      .from(studentProfile)
+      .where(eq(studentProfile.userId, userId))
+      .limit(1);
 
-  if (existing[0]) return existing[0];
+    if (existing[0]) return existing[0];
 
-  const [created] = await db
-    .insert(studentProfile)
-    .values({
-      id: crypto.randomUUID(),
-      userId,
-      isAlumni: false,
-    })
-    .returning();
+    const [created] = await db
+      .insert(studentProfile)
+      .values({
+        id: crypto.randomUUID(),
+        userId,
+        isAlumni: false,
+      })
+      .returning();
 
-  return created;
+    return created;
+  } catch (error) {
+    throw new AppError(
+      "Unable to load student profile. Please try again or contact support.",
+      500,
+      "STUDENT_PROFILE_LOAD_FAILED",
+      error instanceof Error ? error.message : undefined,
+    );
+  }
 }
 
 async function ensureLecturerProfile(userId: string) {
-  const existing = await db
-    .select()
-    .from(lecturerProfile)
-    .where(eq(lecturerProfile.userId, userId))
-    .limit(1);
+  try {
+    const existing = await db
+      .select()
+      .from(lecturerProfile)
+      .where(eq(lecturerProfile.userId, userId))
+      .limit(1);
 
-  if (existing[0]) return existing[0];
+    if (existing[0]) return existing[0];
 
-  const [created] = await db
-    .insert(lecturerProfile)
-    .values({
-      id: crypto.randomUUID(),
-      userId,
-    })
-    .returning();
+    const [created] = await db
+      .insert(lecturerProfile)
+      .values({
+        id: crypto.randomUUID(),
+        userId,
+      })
+      .returning();
 
-  return created;
+    return created;
+  } catch (error) {
+    throw new AppError(
+      "Unable to load lecturer profile. Please try again or contact support.",
+      500,
+      "LECTURER_PROFILE_LOAD_FAILED",
+      error instanceof Error ? error.message : undefined,
+    );
+  }
 }
 
 function mapStudentPublicProfile(

@@ -97,13 +97,23 @@ src/
 2. If session cookie exists → redirect to dashboard.
 3. Page also calls `redirectIfAuthenticated()` on the server.
 
-### Sign-up with avatar
+### Sign-up with default avatar
 
 1. Client validates form (Zod).
-2. If photo selected → `POST /api/auth/avatar` uploads to SeaweedFS.
-3. Client calls Better Auth `signUp.email`.
-4. On failure after upload → delete uploaded object (rollback).
-5. Server sends verification email (`sendOnSignUp`).
+2. Client calls Better Auth `signUp.email` with a generated Dicebear `image` URL (no SeaweedFS upload at registration).
+3. Server forces `role = STUDENT` and sends verification email (`sendOnSignUp`).
+4. User must verify email before sign-in (`requireEmailVerification` + `autoSignIn: false`).
+
+Profile photos are uploaded later via **My Settings** → `/api/settings/avatar`.
+
+### My Settings (public profile)
+
+Students and lecturers edit public profile fields via `PATCH /api/settings/profile`:
+
+- Bio is authored with TipTap (`RichTextEditor`): StarterKit with **built-in Link disabled** (`link: false`) plus one configured `@tiptap/extension-link` to avoid duplicate-extension warnings.
+- Toolbar actions preserve editor selection (`onMouseDown` preventDefault) so bold/italic/lists/links work reliably.
+- Server sanitizes bio HTML (`src/lib/settings/sanitize-bio.ts`) before persist.
+- UI confirms save and destructive removals (skills / filled portfolio links).
 
 ### Avatar display
 
@@ -112,6 +122,25 @@ src/
    - SeaweedFS URL (`STORAGE_ENDPOINT/.../avatars/...`)
 2. UI resolves storage URLs to `/api/media/avatars/...`.
 3. Media proxy fetches object with Basic Auth and streams to browser.
+4. After My Settings photo upload/delete, the client:
+   - broadcasts an optimistic image patch (`notifySessionUserUpdated`)
+   - refetches session with `disableCookieCache: true` (cookie cache is 5 minutes)
+   - calls `router.refresh()` so RSC layouts pick up the new `user.image`
+5. Admin navbar and public `AuthNavActions` consume `useLiveSessionUser` (props + optimistic event; no `useSession` inside the hook — avoids SSR invalid-hook-call in the admin shell).
+
+---
+
+## Process singletons (traffic + HMR safety)
+
+Long-lived Node resources are stored on `globalThis` so Next.js hot reload and multi-import paths do not multiply connections or stream listeners:
+
+| Resource | Module | Notes |
+|---|---|---|
+| Pino logger | `src/lib/logger` | Dev uses `pino-pretty`; production emits JSON. Singleton prevents `MaxListenersExceededWarning` on `stdout`. |
+| Redis | `src/lib/redis/client` | One `ioredis` client per process; used for auth/settings rate limits. |
+| Postgres pool | `src/db` | Shared `pg` Pool (max 20) + Drizzle client. |
+
+Under production traffic: prefer horizontal app instances behind a load balancer; keep Redis/Postgres as shared backends; never recreate logger/redis/db pools per request.
 
 ---
 
@@ -140,7 +169,7 @@ src/
 ## Build notes
 
 - Production build uses `next build --webpack` because Better Auth currently has Turbopack compatibility constraints in this project.
-- Favicon assets are generated via `npm run generate:favicon`.
+- Favicon assets are generated via `npm run generate:favicon` (`app/icon.png` + `apple-icon.png`; PNG-only to avoid libvips/ICO warnings on Windows).
 
 ---
 

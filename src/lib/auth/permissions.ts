@@ -14,6 +14,10 @@ export function isAllowedInstitutionalEmail(email: string): boolean {
   );
 }
 
+/**
+ * Soft hint from email domain (docs / admin tooling only).
+ * Self-service registration always creates STUDENT — lecturers/admins are assigned later.
+ */
 export function inferRoleFromEmail(email: string): UserRole {
   const domain = getEmailDomain(email);
 
@@ -40,6 +44,11 @@ export function validateInstitutionalEmail(email: string): void {
 
 const USER_ROLES: UserRole[] = ["STUDENT", "LECTURER", "ADMIN"];
 
+/**
+ * Resolve the authoritative role from the stored user record.
+ * Never re-infer lecturer from email alone — that caused @binus.ac.id
+ * self-signups to open lecturer settings and crash.
+ */
 export function resolveUserRole(user: {
   email: string;
   role?: string | null;
@@ -53,5 +62,5 @@ export function resolveUserRole(user: {
     return user.role as UserRole;
   }
 
-  return inferRoleFromEmail(user.email);
+  return "STUDENT";
 }

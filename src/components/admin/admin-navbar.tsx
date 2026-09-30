@@ -8,6 +8,7 @@ import { AdminBreadcrumb } from "@/components/admin/admin-breadcrumb";
 import { AdminMobileMenuButton } from "@/components/admin/admin-sidebar";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
+import { useLiveSessionUser } from "@/hooks/use-live-session-user";
 import { getAdminBreadcrumbs } from "@/lib/admin/nav";
 
 type AdminNavbarProps = {
@@ -23,6 +24,7 @@ type AdminNavbarProps = {
 export function AdminNavbar({ user, onOpenMobileSidebar }: AdminNavbarProps) {
   const pathname = usePathname();
   const breadcrumbs = getAdminBreadcrumbs(pathname);
+  const liveUser = useLiveSessionUser(user);
 
   return (
     <header className="sticky top-0 z-30 border-b-2 border-slate-900 bg-white/95 backdrop-blur">
@@ -49,7 +51,7 @@ export function AdminNavbar({ user, onOpenMobileSidebar }: AdminNavbarProps) {
               <span className="sm:hidden">Public</span>
             </Link>
           </Button>
-          <UserMenu user={user} />
+          <UserMenu user={liveUser} />
         </div>
       </div>
     </header>

@@ -18,20 +18,15 @@
 
 Aligned with the PRD (Student, Lecturer, Admin + public visitor):
 
-| Role | Email domain (typical) | Purpose |
+| Role | How assigned | Purpose |
 |---|---|---|
-| **STUDENT** | `@binus.edu` | Create account, manage student dashboard, submit portfolios (workspace features planned) |
-| **LECTURER** | `@binus.ac.id` | Review submissions, manage courses/workspaces (planned) |
-| **ADMIN** | Seeded / elevated | Platform operations: user management, content moderation override, audit logs, reporting |
+| **STUDENT** | Default for all public self-registration (`@binus.edu` or `@binus.ac.id`) | Student dashboard, My Settings, portfolio submission (planned) |
+| **LECTURER** | Admin User Management (planned) / operator elevation | Review submissions, manage courses/workspaces (planned) |
+| **ADMIN** | Seed script / operator elevation | Platform operations: user management, moderation, audit, reporting |
 
 Public visitors browse without an account.
 
-Role is inferred automatically at registration:
-
-- `@binus.edu` → `STUDENT`
-- `@binus.ac.id` → `LECTURER`
-
-Admins are created via seed script, not public self-registration.
+**Self-registration always creates `STUDENT`.** Email domain no longer auto-promotes to lecturer. Admins are created via seed script, not public sign-up.
 
 ---
 

@@ -59,6 +59,14 @@ export function SignInForm() {
     };
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get("registered") === "1") {
+      toast.info(
+        "Verify your BINUS email before signing in. Check your inbox for the link.",
+      );
+    }
+  }, [searchParams]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setErrors({});
@@ -90,9 +98,17 @@ export function SignInForm() {
         const message =
           result.error.message ??
           "Sign in failed. Please check your credentials.";
+        const normalized = message.toLowerCase();
 
-        if (message.toLowerCase().includes("verify")) {
-          toast.error("Please verify your email before signing in.");
+        if (
+          normalized.includes("verify") ||
+          normalized.includes("verification") ||
+          normalized.includes("email not verified") ||
+          result.error.code === "EMAIL_NOT_VERIFIED"
+        ) {
+          toast.error(
+            "Please verify your email before signing in. Check your BINUS inbox for the verification link.",
+          );
         } else {
           toast.error(message);
         }

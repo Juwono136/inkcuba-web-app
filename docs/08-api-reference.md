@@ -98,15 +98,16 @@ Returns aggregated identity + public profile for the current user. Upserts an em
 ### `PATCH /api/settings/profile`
 
 Updates public profile fields (bio, skills, social URLs, portfolio URLs).  
+Bio HTML is sanitized server-side (allowed: `p`, `br`, `strong`/`b`, `em`/`i`, `ul`/`ol`/`li`, `a` with http(s)/mailto). Plain-text length max **2000**.  
 **403** for `ADMIN`. Students and lecturers only.
 
 ### `POST /api/settings/avatar`
 
-`multipart/form-data` with `file`. Max **5MB**; HEIC/HEIF converted to JPEG. Updates `user.image` under `avatars/users/{userId}/...`.
+`multipart/form-data` with `file`. Max **5MB**; HEIC/HEIF converted to JPEG. Uploads to SeaweedFS under `avatars/users/{userId}/...`, updates `user.image`, then deletes the previous storage object (when present) so storage stays in sync with the app.
 
 ### `DELETE /api/settings/avatar`
 
-Removes custom photo (when storage-backed) and sets a Dicebear default image URL.
+Deletes the previous SeaweedFS object (when key-based) and sets a Dicebear default image URL on `user.image`.
 
 ### `POST /api/settings/password-changed`
 

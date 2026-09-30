@@ -20,31 +20,30 @@ This manual explains how to use inkcuba from an end-user perspective.
 
 ---
 
-## 2. Create an account (student or lecturer)
+## 2. Create an account
 
 1. Go to **Get Started** (`/auth/sign-up`).
-2. (Optional) Choose a profile photo (JPG/PNG/WebP, max 2MB).
-3. Fill required fields:
+2. Fill required fields:
    - Full name
    - BINUS email (`@binus.edu` or `@binus.ac.id`)
    - BINUSIAN ID
    - Campus
    - Password + confirm password
-4. Follow the password checklist:
+3. Follow the password checklist:
    - at least 8 characters
    - 1 uppercase
    - 1 lowercase
    - 1 number
-5. Click **Create Account**.
-6. Check your BINUS inbox for the verification email.
-7. Click **Verify Email Address**.
-8. Return to Sign In and log in.
+4. Click **Create Account**.
+5. Check your BINUS inbox for the verification email.
+6. Click **Verify Email Address** — you cannot sign in until this is done.
+7. Return to Sign In and log in.
 
 ### Tips
 
-- If you skip profile photo, inkcuba assigns a unique default avatar.
-- Photo is uploaded only when you submit the form (not when selecting the file).
-- Lecturers typically register with `@binus.ac.id`; students with `@binus.edu`.
+- Public registration always creates a **Student** account (a default avatar is assigned automatically).
+- Change your profile photo later in **My Settings**.
+- Lecturer/Admin roles are assigned by operators, not via public sign-up.
 
 ---
 
@@ -136,9 +135,9 @@ Dedicated administration console (not the public site header/footer):
 **Admins** — `/dashboard/admin/settings` (same features, admin console chrome)
 
 1. **Account Identity** — view-only name, email, role, campus, BINUSIAN ID, and role-specific academic fields. Empty values show as `-`.
-2. **Profile Photo** — change or remove your photo (JPG/PNG/WebP/HEIC up to 5MB). Replacing or removing a photo also updates SeaweedFS (old object deleted).
-3. **Public Profile** (students & lecturers) — edit bio, skills, and social/portfolio links, then save.
-4. **Security** — change password with placeholders, show/hide toggles, and a confirm modal. Other sessions are signed out and a confirmation email is sent.
+2. **Profile Photo** — change or remove your photo (JPG/PNG/WebP/HEIC up to 5MB). Replacing or removing asks for confirmation and updates SeaweedFS (old object deleted; no orphans). The header/admin navbar avatar updates immediately.
+3. **Public Profile** (students & lecturers) — edit bio (bold, italic, lists, links), skills, and social/portfolio links (preview uses real brand icons). Saving, removing a skill, or removing a filled portfolio link asks for confirmation.
+4. **Security** — change password with placeholders, show/hide toggles, and a confirm modal. Validation messages name the issue clearly (e.g. passwords don’t match). Other sessions are signed out and a confirmation email is sent.
 
 ---
 

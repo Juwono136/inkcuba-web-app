@@ -1,6 +1,7 @@
 "use client";
 
 import { Camera, Loader2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { authClient } from "@/lib/auth/client";
+import { notifySessionUserUpdated } from "@/lib/auth/session-user-sync";
 import { resolveUserImageUrl } from "@/lib/media/resolve-avatar-url";
 
 const MAX_SETTINGS_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -26,23 +28,39 @@ type ProfilePhotoSectionProps = {
   onImageChange: (image: string | null) => void;
 };
 
+async function refreshSessionAfterAvatarChange() {
+  // Bypass Better Auth cookie cache so navbar/menus get the new image ASAP.
+  await authClient.getSession({
+    query: { disableCookieCache: true },
+  });
+}
+
 export function ProfilePhotoSection({
   name,
   image,
   onImageChange,
 }: ProfilePhotoSectionProps) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingFileRef = useRef<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
 
   const resolved = resolveUserImageUrl(image);
   const hasCustomPhoto =
     Boolean(image) && !image?.includes("api.dicebear.com");
 
+  async function syncAvatarEverywhere(nextImage: string) {
+    onImageChange(nextImage);
+    notifySessionUserUpdated({ image: nextImage });
+    await refreshSessionAfterAvatarChange();
+    router.refresh();
+  }
+
   async function handleUpload(file: File) {
     if (!ALLOWED_TYPES.includes(file.type) && file.type !== "") {
-      // Allow empty type for HEIC on some browsers; server validates magic bytes
       const lower = file.name.toLowerCase();
       const looksHeic = lower.endsWith(".heic") || lower.endsWith(".heif");
       if (!looksHeic) {
@@ -77,16 +95,33 @@ export function ProfilePhotoSection({
         throw new Error(data.error?.message ?? "Failed to upload photo");
       }
 
-      onImageChange(data.data.image);
-      await authClient.getSession();
+      await syncAvatarEverywhere(data.data.image);
       toast.success("Profile photo updated");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to upload photo",
       );
+      throw error;
     } finally {
       setUploading(false);
+      pendingFileRef.current = null;
     }
+  }
+
+  function onFileSelected(file: File) {
+    if (hasCustomPhoto) {
+      pendingFileRef.current = file;
+      setConfirmReplaceOpen(true);
+      return;
+    }
+
+    void handleUpload(file);
+  }
+
+  async function confirmReplace() {
+    const file = pendingFileRef.current;
+    if (!file) return;
+    await handleUpload(file);
   }
 
   async function handleRemove() {
@@ -107,8 +142,7 @@ export function ProfilePhotoSection({
         throw new Error(data.error?.message ?? "Failed to remove photo");
       }
 
-      onImageChange(data.data.image);
-      await authClient.getSession();
+      await syncAvatarEverywhere(data.data.image);
       toast.success("Profile photo removed");
     } catch (error) {
       toast.error(
@@ -131,12 +165,18 @@ export function ProfilePhotoSection({
           {resolved ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
+              key={resolved}
               src={resolved}
               alt={name}
               className="h-24 w-24 rounded-2xl border-2 border-slate-900 object-cover"
             />
           ) : (
-            <UserAvatar name={name} image={image} size="lg" className="h-24 w-24 rounded-2xl" />
+            <UserAvatar
+              name={name}
+              image={image}
+              size="lg"
+              className="h-24 w-24 rounded-2xl"
+            />
           )}
         </div>
 
@@ -178,19 +218,33 @@ export function ProfilePhotoSection({
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (file) void handleUpload(file);
+          if (file) onFileSelected(file);
         }}
       />
 
       <p className="mt-4 text-xs text-slate-500">
-        JPG, PNG, WebP, or HEIC/HEIF up to 5MB.
+        JPG, PNG, WebP, or HEIC/HEIF up to 5MB. Replacing a photo deletes the
+        previous file from storage.
       </p>
+
+      <ConfirmDialog
+        open={confirmReplaceOpen}
+        onOpenChange={(open) => {
+          setConfirmReplaceOpen(open);
+          if (!open) pendingFileRef.current = null;
+        }}
+        title="Replace profile photo?"
+        description="Your current photo will be permanently deleted from storage and replaced with the new image."
+        confirmLabel="Replace photo"
+        loading={uploading}
+        onConfirm={confirmReplace}
+      />
 
       <ConfirmDialog
         open={confirmRemoveOpen}
         onOpenChange={setConfirmRemoveOpen}
         title="Remove profile photo?"
-        description="Your custom photo will be deleted and replaced with a default avatar."
+        description="Your custom photo will be deleted from storage and replaced with a default avatar."
         confirmLabel="Remove photo"
         variant="destructive"
         loading={removing}

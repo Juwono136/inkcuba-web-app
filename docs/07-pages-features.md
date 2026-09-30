@@ -8,6 +8,7 @@
 | `/explore` | Explore published portfolios (currently mock data) |
 | `/courses` | Courses preview surface |
 | `/stats` | Campus stats surface |
+| *(any unknown URL)* | Custom branded `not-found` (404) page |
 
 ### Homepage composition
 
@@ -40,7 +41,7 @@ All use `AuthShell` (brand panel + form panel), guest-only.
 | Route | Feature highlights |
 |---|---|
 | `/auth/sign-in` | Email/password, remember credentials, forgot password link, expired-session notice |
-| `/auth/sign-up` | Avatar picker (local preview), campus select, password requirements checklist |
+| `/auth/sign-up` | Campus select, password checklist; no avatar upload (defaults generated) |
 | `/auth/forgot-password` | Email request + inbox confirmation state |
 | `/auth/reset-password` | Token-gated new password form / invalid-token recovery |
 
@@ -109,9 +110,9 @@ Shared settings logic (`src/components/settings/`):
 | Section | Roles | Behavior |
 |---|---|---|
 | Account Identity | All | Read-only institutional fields; empty values render as `-` |
-| Profile Photo | All | Upload/replace/remove (5MB; HEIC→JPEG); updates `user.image`; previous SeaweedFS object deleted |
-| Public Profile | Student + Lecturer | Editable bio (TipTap), skills, social + portfolio URLs |
-| Security | All | Password fields with placeholders, show/hide toggles, live strength checklist, confirm modal + notification email |
+| Profile Photo | All | Upload/replace/remove with confirm modals (5MB; HEIC→JPEG); updates `user.image`; previous SeaweedFS object deleted; navbar avatar syncs immediately |
+| Public Profile | Student + Lecturer | Editable bio (TipTap: bold/italic/lists/links), skills, social + portfolio URLs with brand icons; confirm before save / remove |
+| Security | All | Password fields with placeholders, show/hide toggles, live strength checklist, confirm modal + notification email; validation toasts show the specific field message |
 
 Admins skip Public Profile. Major/batch/campus/BINUSIAN ID and related identity fields are admin-managed later (not editable here).
 
@@ -123,6 +124,8 @@ Admins skip Public Profile. Major/batch/campus/BINUSIAN ID and related identity 
 |---|---|
 | `SiteHeader` / `AuthNavActions` | Adaptive public/auth header actions |
 | `UserMenu` / `MobileUserAccountActions` | Account dropdown + logout |
+| `useLiveSessionUser` | Keeps navbar avatar in sync after settings photo changes (bypasses cookie-cache lag) |
+| `SocialBrandIcons` + `SocialLinksPreview` | LinkedIn / GitHub / Instagram / YouTube / X / TikTok brand marks in settings preview |
 | `AdminShell` / `AdminSidebar` / `AdminNavbar` | Dedicated admin console chrome |
 | `AdminBreadcrumb` | Path breadcrumbs in admin navbar |
 | `ConfirmDialog` | Reusable confirmation modal |
@@ -131,7 +134,7 @@ Admins skip Public Profile. Major/batch/campus/BINUSIAN ID and related identity 
 | `PasswordRequirements` | Live password rule checklist |
 | `AvatarUploadField` | Local preview only until submit |
 | `SettingsPageClient` + section cards | Full My Settings experience |
-| `RichTextEditor` | Minimal TipTap bio editor |
+| `RichTextEditor` | TipTap bio editor (StarterKit with `link: false` + single Link extension; toolbar keeps selection; link dialog) |
 | `AuthShell` | Shared auth layout |
 | `InkcubaLoader` | Branded loading state |
 | `ScrollToTop` | Homepage convenience control |
