@@ -31,3 +31,11 @@ export const workspaceMemberStatusEnum = pgEnum("workspace_member_status", [
   "ACTIVE",
   "REMOVED",
 ]);
+
+export const directoryOptionCategoryEnum = pgEnum("directory_option_category", [
+  "campus",
+  "major",
+  "batch",
+  "semester",
+  "department",
+]);

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -24,8 +26,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import {
+  optionsForCategory,
+  useAllDirectoryOptions,
+} from "@/hooks/use-directory-options";
 import { formatAdminDateTime } from "@/lib/admin/users/format";
 import type { AdminUserDetail } from "@/lib/admin/users/types";
+import type { DirectoryOptionCategory } from "@/lib/directory/types";
 import { cn } from "@/lib/utils";
 
 type UserDetailDialogProps = {
@@ -40,12 +47,28 @@ type ApiEnvelope<T> =
   | { success: true; data: T }
   | { success: false; error: { message: string } };
 
+const DIRECTORY_CLEAR_VALUE = "__directory_clear__";
+const CLEAR_PLACEHOLDER = "— leave empty to clear";
+
 async function readJson<T>(response: Response): Promise<T> {
   const payload = (await response.json()) as ApiEnvelope<T>;
   if (!payload.success) {
     throw new Error(payload.error?.message || "Request failed");
   }
   return payload.data;
+}
+
+function nullableField(value: string | null | undefined): string {
+  return value?.trim() ? value.trim() : "";
+}
+
+function nullableEqual(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const norm = (v: string | null | undefined) =>
+    v == null || v.trim() === "" ? null : v.trim();
+  return norm(a) === norm(b);
 }
 
 function ReadOnlyField({
@@ -70,6 +93,54 @@ function ReadOnlyField({
   );
 }
 
+function DirectorySelectField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { label: string; value: string }[];
+  disabled?: boolean;
+}) {
+  const selectValue = value === "" ? DIRECTORY_CLEAR_VALUE : value;
+
+  return (
+    <div className="min-w-0 space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={selectValue}
+        onValueChange={(next) =>
+          onChange(next === DIRECTORY_CLEAR_VALUE ? "" : next)
+        }
+        disabled={disabled}
+      >
+        <SelectTrigger
+          id={id}
+          className="w-full rounded-xl border-2 border-slate-900 bg-white"
+        >
+          <SelectValue placeholder={CLEAR_PLACEHOLDER} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={DIRECTORY_CLEAR_VALUE}>
+            {CLEAR_PLACEHOLDER}
+          </SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function UserDetailBody({
   user,
   isSelf,
@@ -83,20 +154,87 @@ function UserDetailBody({
   onClose: () => void;
   onRefetch: () => Promise<unknown>;
 }) {
+  const directoryQuery = useAllDirectoryOptions();
+  const directoryItems = directoryQuery.data;
+
   const [role, setRole] = useState(user.role);
   const [isActive, setIsActive] = useState(user.isActive);
+  const [name, setName] = useState(user.name);
+  const [campus, setCampus] = useState(nullableField(user.campus));
+  const [nim, setNim] = useState(nullableField(user.nim));
+  const [nidn, setNidn] = useState(nullableField(user.nidn));
+  const [major, setMajor] = useState(nullableField(user.major));
+  const [batch, setBatch] = useState(nullableField(user.batch));
+  const [semester, setSemester] = useState(nullableField(user.semester));
+  const [department, setDepartment] = useState(nullableField(user.department));
+  const [title, setTitle] = useState(nullableField(user.title));
+
   const [confirm, setConfirm] = useState<
     null | "save" | "soft-delete" | "restore" | "hard-delete"
   >(null);
 
-  const canMutate = !isSelf && !user.deletedAt;
-  const dirty =
-    canMutate && (role !== user.role || isActive !== user.isActive);
+  const canEditIdentity = !user.deletedAt;
+  const canMutateRoleStatus = !isSelf && !user.deletedAt;
+
+  const identityDirty =
+    canEditIdentity &&
+    (name.trim() !== user.name.trim() ||
+      !nullableEqual(campus, user.campus) ||
+      !nullableEqual(nim, user.nim) ||
+      !nullableEqual(nidn, user.nidn) ||
+      !nullableEqual(major, user.major) ||
+      !nullableEqual(batch, user.batch) ||
+      !nullableEqual(semester, user.semester) ||
+      !nullableEqual(department, user.department) ||
+      !nullableEqual(title, user.title));
+
+  const roleStatusDirty =
+    canMutateRoleStatus && (role !== user.role || isActive !== user.isActive);
+
+  const dirty = identityDirty || roleStatusDirty;
+
+  function buildPatchBody(): Record<string, string | boolean> {
+    const body: Record<string, string | boolean> = {};
+
+    if (canMutateRoleStatus) {
+      if (role !== user.role) body.role = role;
+      if (isActive !== user.isActive) body.isActive = isActive;
+    }
+
+    if (canEditIdentity) {
+      if (name.trim() !== user.name.trim()) body.name = name.trim();
+      if (!nullableEqual(campus, user.campus)) body.campus = campus.trim();
+      if (!nullableEqual(nim, user.nim)) body.nim = nim.trim();
+      if (!nullableEqual(nidn, user.nidn)) body.nidn = nidn.trim();
+      if (!nullableEqual(major, user.major)) body.major = major.trim();
+      if (!nullableEqual(batch, user.batch)) body.batch = batch.trim();
+      if (!nullableEqual(semester, user.semester)) body.semester = semester.trim();
+      if (!nullableEqual(department, user.department))
+        body.department = department.trim();
+      if (!nullableEqual(title, user.title)) body.title = title.trim();
+    }
+
+    return body;
+  }
+
+  function applyUserToForm(next: AdminUserDetail) {
+    setRole(next.role);
+    setIsActive(next.isActive);
+    setName(next.name);
+    setCampus(nullableField(next.campus));
+    setNim(nullableField(next.nim));
+    setNidn(nullableField(next.nidn));
+    setMajor(nullableField(next.major));
+    setBatch(nullableField(next.batch));
+    setSemester(nullableField(next.semester));
+    setDepartment(nullableField(next.department));
+    setTitle(nullableField(next.title));
+  }
 
   async function handleSave() {
-    if (!canMutate) {
-      toast.error("You cannot change your own role or account status");
-      throw new Error("Self-edit blocked");
+    const body = buildPatchBody();
+    if (Object.keys(body).length === 0) {
+      return;
     }
 
     try {
@@ -104,12 +242,11 @@ function UserDetailBody({
         await fetch(`/api/admin/users/${user.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role, isActive }),
+          body: JSON.stringify(body),
         }),
       );
 
-      setRole(data.user.role);
-      setIsActive(data.user.isActive);
+      applyUserToForm(data.user);
       toast.success("User updated");
       onChanged();
       await onRefetch();
@@ -143,8 +280,7 @@ function UserDetailBody({
       const data = await readJson<{ user: AdminUserDetail }>(
         await fetch(`/api/admin/users/${user.id}/restore`, { method: "POST" }),
       );
-      setRole(data.user.role);
-      setIsActive(data.user.isActive);
+      applyUserToForm(data.user);
       toast.success("User restored (still inactive until you activate)");
       onChanged();
       await onRefetch();
@@ -173,6 +309,26 @@ function UserDetailBody({
       toast.error(error instanceof Error ? error.message : "Remove failed");
       throw error;
     }
+  }
+
+  const directoryDisabled =
+    directoryQuery.isLoading || directoryQuery.isError;
+
+  const directoryCurrentValues: Record<DirectoryOptionCategory, string> = {
+    campus,
+    major,
+    batch,
+    semester,
+    department,
+  };
+
+  function directoryOptions(category: DirectoryOptionCategory) {
+    const current = directoryCurrentValues[category];
+    return optionsForCategory(
+      directoryItems,
+      category,
+      current.trim() ? current : null,
+    );
   }
 
   return (
@@ -216,16 +372,133 @@ function UserDetailBody({
           </div>
         </div>
 
+        {user.deletedAt ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ReadOnlyField label="Campus" value={user.campus} />
+            <ReadOnlyField label="BINUSIAN ID" value={user.binusianId} />
+            <ReadOnlyField label="NIM" value={user.nim} />
+            <ReadOnlyField label="NIDN" value={user.nidn} />
+            <ReadOnlyField label="Major" value={user.major} />
+            <ReadOnlyField label="Batch" value={user.batch} />
+            <ReadOnlyField label="Semester" value={user.semester} />
+            <ReadOnlyField label="Department" value={user.department} />
+            <ReadOnlyField label="Title" value={user.title} />
+          </div>
+        ) : (
+          <div className="space-y-4 rounded-2xl border-2 border-inkcuba-navy bg-white p-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+              <p className="text-xs font-bold tracking-[0.14em] text-inkcuba-navy uppercase">
+                Identity
+              </p>
+              <p className="text-xs leading-relaxed text-slate-500">
+                Manage selectable values in{" "}
+                <Link
+                  href="/dashboard/admin/directory"
+                  className="font-semibold text-inkcuba-purple underline-offset-2 hover:underline"
+                >
+                  Directory Options
+                </Link>
+                .
+              </p>
+            </div>
+            {directoryQuery.isError ? (
+              <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Could not load directory options. Campus, major, batch, semester,
+                and department selects may be unavailable until you refresh.
+              </p>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2 sm:col-span-2">
+                <Label htmlFor="admin-user-name">Name</Label>
+                <Input
+                  id="admin-user-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Full name"
+                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  autoComplete="off"
+                />
+              </div>
+              <DirectorySelectField
+                id="admin-user-campus"
+                label="Campus"
+                value={campus}
+                onChange={setCampus}
+                options={directoryOptions("campus")}
+                disabled={directoryDisabled}
+              />
+              <ReadOnlyField label="BINUSIAN ID" value={user.binusianId} />
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="admin-user-nim">NIM (Student ID)</Label>
+                <Input
+                  id="admin-user-nim"
+                  value={nim}
+                  onChange={(event) => setNim(event.target.value)}
+                  placeholder={CLEAR_PLACEHOLDER}
+                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="admin-user-nidn">NIDN (Lecturer ID)</Label>
+                <Input
+                  id="admin-user-nidn"
+                  value={nidn}
+                  onChange={(event) => setNidn(event.target.value)}
+                  placeholder={CLEAR_PLACEHOLDER}
+                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  autoComplete="off"
+                />
+              </div>
+              <DirectorySelectField
+                id="admin-user-major"
+                label="Major"
+                value={major}
+                onChange={setMajor}
+                options={directoryOptions("major")}
+                disabled={directoryDisabled}
+              />
+              <DirectorySelectField
+                id="admin-user-batch"
+                label="Batch"
+                value={batch}
+                onChange={setBatch}
+                options={directoryOptions("batch")}
+                disabled={directoryDisabled}
+              />
+              <DirectorySelectField
+                id="admin-user-semester"
+                label="Semester"
+                value={semester}
+                onChange={setSemester}
+                options={directoryOptions("semester")}
+                disabled={directoryDisabled}
+              />
+              <DirectorySelectField
+                id="admin-user-department"
+                label="Department"
+                value={department}
+                onChange={setDepartment}
+                options={directoryOptions("department")}
+                disabled={directoryDisabled}
+              />
+              <div className="min-w-0 space-y-2 sm:col-span-2">
+                <Label htmlFor="admin-user-title">Title</Label>
+                <Input
+                  id="admin-user-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder={CLEAR_PLACEHOLDER}
+                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
-          <ReadOnlyField label="Campus" value={user.campus} />
-          <ReadOnlyField label="BINUSIAN ID" value={user.binusianId} />
-          <ReadOnlyField label="NIM" value={user.nim} />
-          <ReadOnlyField label="NIDN" value={user.nidn} />
-          <ReadOnlyField label="Major" value={user.major} />
-          <ReadOnlyField label="Batch" value={user.batch} />
-          <ReadOnlyField label="Semester" value={user.semester} />
-          <ReadOnlyField label="Department" value={user.department} />
-          <ReadOnlyField label="Title" value={user.title} />
+          <ReadOnlyField label="Email" value={user.email} />
           <ReadOnlyField
             label="Email verified"
             value={user.emailVerified ? "Yes" : "No"}
@@ -249,6 +522,7 @@ function UserDetailBody({
               <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
                 This is your own account. Role, activation, and delete are
                 locked here — ask another administrator if those need to change.
+                You can still edit identity fields above.
               </p>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -313,7 +587,7 @@ function UserDetailBody({
 
       <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
         <div className="flex flex-wrap gap-2">
-          {canMutate ? (
+          {canMutateRoleStatus ? (
             <Button
               type="button"
               variant="outline"
@@ -353,7 +627,7 @@ function UserDetailBody({
           >
             Close
           </Button>
-          {canMutate ? (
+          {canEditIdentity ? (
             <Button
               type="button"
               className="bg-inkcuba-cyan shadow-inkcuba hover:bg-sky-600"
@@ -370,7 +644,7 @@ function UserDetailBody({
         open={confirm === "save"}
         onOpenChange={(next) => !next && setConfirm(null)}
         title="Save user changes?"
-        description="Role and/or activation status will be updated immediately. Inactive users lose access until reactivated."
+        description="Updated identity fields and/or role and activation status will be saved immediately. Inactive users lose access until reactivated."
         confirmLabel="Save"
         onConfirm={handleSave}
       />
@@ -439,8 +713,8 @@ export function UserDetailDialog({
             User details
           </DialogTitle>
           <DialogDescription className="text-sm text-slate-600">
-            Profile fields are read-only. You can update role, activation
-            status, or delete this account.
+            Edit identity fields, update role and activation, or move accounts to
+            trash. Email and sign-in metadata stay read-only.
           </DialogDescription>
         </DialogHeader>
 

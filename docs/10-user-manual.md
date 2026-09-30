@@ -134,16 +134,29 @@ Dedicated administration console (not the public site header/footer):
 
 - Dedicated admin chrome (not the public header)
 - Brand-colored overview + collapsible sidebar
-- **User Management** at `/dashboard/admin/users` — search, filter, sort, paginate all accounts; open details to change role / active status; move users to trash (30 days) or permanently remove
+- **User Management** at `/dashboard/admin/users` — search, filter, sort, paginate; edit role, activation, and institutional identity; trash / restore / permanent remove
+- **Directory Options** at `/dashboard/admin/directory` — maintain campus, major, batch, semester, and department lists used by User Management selects
 - Settings at `/dashboard/admin/settings`
+
+#### Directory Options tips
+
+1. Switch category with the tabs (desktop) or the category dropdown (mobile).
+2. Use **search** to find options by label; results update after a short debounce. Pagination controls appear at the bottom (10 / 20 / 50 per page).
+3. **Add option** only needs a label and active checkbox — the system stores the value automatically. Edit can change the label or active state, not the stored value.
+4. Drag the **grip handle** to reorder how options appear in forms. Clear any active search before reordering.
+5. **Delete** asks for confirmation; existing profile data is left as-is, but the value will no longer appear in selects.
 
 #### User Management tips
 
-1. Open a user with **Details** to see full read-only profile info.
+1. Open a user with **Details** to see and edit identity fields (selects come from Directory Options).
 2. Change **Role** or **Account status**, then confirm **Save changes**.
 3. Inactive users cannot sign in until an admin reactivates them.
-4. **Move to trash** soft-deletes for 30 days; use **Open trash** to restore or permanently remove (also deletes stored profile photos from object storage).
+4. **Move to trash** soft-deletes for 30 days; use **Open trash** to restore or permanently remove.
 5. You cannot deactivate or delete your own admin account, or remove the last active administrator.
+
+#### My Settings (students & lecturers)
+
+1. **Account Identity** — students see NIM, major, batch, semester, department, title (read-only). Lecturers see NIDN, major, department, title and may edit **name** + **title** with confirmation.
 
 ### My Settings
 

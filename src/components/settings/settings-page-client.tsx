@@ -31,7 +31,10 @@ export function SettingsPageClient({
     >
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <div className="min-w-0">
-          <AccountIdentitySection identity={settings.identity} />
+          <AccountIdentitySection
+            identity={settings.identity}
+            onIdentitySaved={setSettings}
+          />
         </div>
         <div className="min-w-0">
           <ProfilePhotoSection

@@ -3,7 +3,13 @@ export const ADMIN_SIDEBAR_STORAGE_KEY = "inkcuba.admin-sidebar-collapsed";
 export type AdminNavItem = {
   href: string;
   label: string;
-  icon: "overview" | "settings" | "users" | "portfolios" | "audit";
+  icon:
+    | "overview"
+    | "settings"
+    | "users"
+    | "portfolios"
+    | "audit"
+    | "directory";
   exact?: boolean;
   disabled?: boolean;
   badge?: string;
@@ -21,6 +27,11 @@ export const ADMIN_PRIMARY_NAV_ITEMS: AdminNavItem[] = [
     href: "/dashboard/admin/users",
     label: "User Management",
     icon: "users",
+  },
+  {
+    href: "/dashboard/admin/directory",
+    label: "Directory Options",
+    icon: "directory",
   },
   {
     href: "/dashboard/admin/portfolios",
@@ -75,6 +86,11 @@ export function getAdminBreadcrumbs(pathname: string): AdminBreadcrumbItem[] {
 
   if (pathname.startsWith("/dashboard/admin/users")) {
     crumbs.push({ label: "User Management" });
+    return crumbs;
+  }
+
+  if (pathname.startsWith("/dashboard/admin/directory")) {
+    crumbs.push({ label: "Directory Options" });
     return crumbs;
   }
 

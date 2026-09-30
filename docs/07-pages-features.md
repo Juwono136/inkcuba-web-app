@@ -63,6 +63,7 @@ Dashboard chrome is **role-aware**:
 | `/dashboard/lecturer` | LECTURER | Welcome shell |
 | `/dashboard/admin` | ADMIN | Admin overview console |
 | `/dashboard/admin/users` | ADMIN | User Management (list, detail modal, trash) |
+| `/dashboard/admin/directory` | ADMIN | Directory Options (campus, major, batch, semester, department) |
 | `/dashboard/admin/settings` | ADMIN | My Settings inside admin chrome |
 | `/dashboard/settings` | Student / Lecturer | My Settings (admins redirect to `/dashboard/admin/settings`) |
 
@@ -87,10 +88,22 @@ Dashboard chrome is **role-aware**:
 
 - Paginated directory of all roles (Student, Lecturer, Admin) with last-login column
 - Debounced search (name, email, campus, NIM/NIDN), role/status filters, sortable columns
-- Detail modal (read-only identity + public profile fields); editable **role** and **active/inactive** only
+- Detail modal: edit **role**, **active/inactive**, and institutional identity (name, campus, NIM, NIDN, major, batch, semester, department, title)
+- Campus / major / batch / semester / department use **Directory Options** selects
 - Soft delete → Trash (30-day retention) with restore / permanent remove; hard delete also clears SeaweedFS avatars
 - Confirm dialogs for save, soft delete, restore, and hard delete
-- APIs under `/api/admin/users/*` (ADMIN-only, rate limited, audit logged)
+- Every mutation writes detailed `audit_log` metadata (`user.update` field-level `changes`)
+- APIs under `/api/admin/users/*` (ADMIN-only, rate limited)
+
+### Admin Directory Options (`/dashboard/admin/directory`)
+
+- CRUD for selectable institutional values: campus, major, batch, semester, department
+- **Label-only** create/edit forms — stored `value` is system-generated from the label at create time and stays immutable (so profile references remain stable)
+- **Drag-and-drop** reorder via grip handles (Framer Motion); sort order is not shown as a numeric field; drag is disabled while a search filter is active
+- Debounced search (label/value), pagination (10/20/50), responsive card layout on small screens and compact rows on tablet/desktop
+- Active options drive User Management selects and public `GET /api/directory-options`
+- Default campuses are seeded automatically when the campus category is empty
+- Mutations audited as `directory_option.create|update|delete|reorder`
 
 ---
 
@@ -123,13 +136,13 @@ Shared settings logic (`src/components/settings/`):
 
 | Section | Roles | Behavior |
 |---|---|---|
-| Account Identity | All | Read-only institutional fields; empty values render as `-` |
+| Account Identity | All | Students: full institutional fields (read-only). Lecturers: same display; **name** + **title** editable with confirm modal |
 | Profile Photo | All | Upload/replace/remove with confirm modals (5MB; HEIC→JPEG); updates `user.image`; previous SeaweedFS object deleted; navbar avatar syncs immediately |
 | Public Profile | Student + Lecturer | Editable bio (TipTap, plain text max **8000**), skills, social URLs, up to **4** custom-named links; confirm before save / remove |
 | Security | All | Password fields with placeholders, show/hide toggles, live strength checklist, confirm modal + notification email; validation toasts show the specific field message |
 | Login History | All | Last **7 days** of sign-ins beside Security on large screens; friendly location labels (no raw IPv6 blobs); paginated |
 
-Admins skip Public Profile. Major/batch/campus/BINUSIAN ID remain read-only on My Settings; admins change **role** and **active** status from User Management (not identity fields).
+Admins skip Public Profile. Campus / major / IDs / batch / semester / department remain admin-managed via User Management + Directory Options. Lecturers may update **name** and **title** from My Settings.
 
 ---
 

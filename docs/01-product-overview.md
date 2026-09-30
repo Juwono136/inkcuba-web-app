@@ -51,7 +51,8 @@ Public visitors browse without an account.
 | Dashboards (student / lecturer / admin) | Shell | Role-gated placeholder workspaces |
 | My Settings page | Done | Identity (RO), photo, public profile, password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
-| Admin User Management | Done | List/search/filter/sort/paginate; role + active toggles; soft delete (30d) + trash hard delete |
+| Admin User Management | Done | List/search/filter; edit role, activation, identity; soft delete + trash; audit writes |
+| Admin Directory Options | Done | CRUD + drag-reorder, search/pagination for campus/major/batch/semester/department selects |
 | Health check API | Done | Basic + detailed (token) |
 | Redis rate limiting | Done | Auth + avatar upload |
 | Email templates | Done | Verification + reset + password-changed |

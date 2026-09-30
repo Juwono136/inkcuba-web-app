@@ -158,6 +158,8 @@ async function loadDetailExtras(
       major: emptyOrNull(profile.major),
       batch,
       semester: emptyOrNull(profile.semester),
+      department: emptyOrNull(profile.department),
+      title: emptyOrNull(profile.title),
       isAlumni: profile.isAlumni,
       alumniLabel: profile.isAlumni
         ? batch
@@ -480,14 +482,12 @@ export async function patchAdminUser(input: {
   const nextActive =
     input.patch.isActive !== undefined ? input.patch.isActive : row.isActive;
 
-  const roleChanging = input.patch.role !== undefined && input.patch.role !== currentRole;
+  const roleChanging =
+    input.patch.role !== undefined && input.patch.role !== currentRole;
   const activeChanging =
     input.patch.isActive !== undefined && input.patch.isActive !== row.isActive;
 
-  if (!roleChanging && !activeChanging) {
-    // Idempotent no-op
-    return toDetail(row);
-  }
+  const detailBefore = await toDetail(row);
 
   if (input.userId === input.actorId) {
     if (roleChanging) {
@@ -510,35 +510,179 @@ export async function patchAdminUser(input: {
     }
   }
 
-  await db
-    .update(userTable)
-    .set({
-      ...(roleChanging ? { role: nextRole } : {}),
-      ...(activeChanging ? { isActive: nextActive } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(userTable.id, input.userId));
+  const { assertDirectoryValue } = await import("@/lib/directory/service");
+
+  const nextCampus =
+    input.patch.campus !== undefined
+      ? await assertDirectoryValue("campus", input.patch.campus, "Campus")
+      : undefined;
+  const nextMajor =
+    input.patch.major !== undefined
+      ? await assertDirectoryValue("major", input.patch.major, "Major")
+      : undefined;
+  const nextBatch =
+    input.patch.batch !== undefined
+      ? await assertDirectoryValue("batch", input.patch.batch, "Batch")
+      : undefined;
+  const nextSemester =
+    input.patch.semester !== undefined
+      ? await assertDirectoryValue("semester", input.patch.semester, "Semester")
+      : undefined;
+  const nextDepartment =
+    input.patch.department !== undefined
+      ? await assertDirectoryValue(
+          "department",
+          input.patch.department,
+          "Department",
+        )
+      : undefined;
+
+  const nextName = input.patch.name;
+  const nextNim =
+    input.patch.nim !== undefined ? input.patch.nim : undefined;
+  const nextNidn =
+    input.patch.nidn !== undefined ? input.patch.nidn : undefined;
+  const nextTitle =
+    input.patch.title !== undefined ? input.patch.title : undefined;
+
+  const userUpdates: Partial<typeof userTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+  if (roleChanging) userUpdates.role = nextRole;
+  if (activeChanging) userUpdates.isActive = nextActive;
+  if (nextName !== undefined) userUpdates.name = nextName;
+  if (nextCampus !== undefined) userUpdates.campus = nextCampus;
+  if (nextNim !== undefined) userUpdates.nim = nextNim;
+  if (nextNidn !== undefined) userUpdates.nidn = nextNidn;
+
+  const hasUserFieldChange =
+    roleChanging ||
+    activeChanging ||
+    nextName !== undefined ||
+    nextCampus !== undefined ||
+    nextNim !== undefined ||
+    nextNidn !== undefined;
+
+  const hasProfileFieldChange =
+    nextMajor !== undefined ||
+    nextBatch !== undefined ||
+    nextSemester !== undefined ||
+    nextDepartment !== undefined ||
+    nextTitle !== undefined;
+
+  if (!hasUserFieldChange && !hasProfileFieldChange) {
+    return detailBefore;
+  }
+
+  if (hasUserFieldChange) {
+    await db
+      .update(userTable)
+      .set(userUpdates)
+      .where(eq(userTable.id, input.userId));
+  }
 
   if (activeChanging && !nextActive) {
     await revokeAllUserSessions(input.userId);
   }
 
-  await createAuditLog({
-    actorId: input.actorId,
-    action: "user.update",
-    entityType: "user",
-    entityId: input.userId,
-    metadata: {
-      role: roleChanging ? { from: currentRole, to: nextRole } : undefined,
-      isActive: activeChanging
-        ? { from: row.isActive, to: nextActive }
-        : undefined,
-    },
-    ipAddress: input.ipAddress,
-    userAgent: input.userAgent,
+  // Ensure profile row exists for the effective role, then patch fields.
+  if (hasProfileFieldChange || roleChanging) {
+    if (nextRole === "STUDENT") {
+      const existing = await db
+        .select({ id: studentProfile.id })
+        .from(studentProfile)
+        .where(eq(studentProfile.userId, input.userId))
+        .limit(1);
+      if (!existing[0]) {
+        await db.insert(studentProfile).values({
+          id: crypto.randomUUID(),
+          userId: input.userId,
+          isAlumni: false,
+          major: nextMajor ?? null,
+          batch: nextBatch ?? null,
+          semester: nextSemester ?? null,
+          department: nextDepartment ?? null,
+          title: nextTitle ?? null,
+        });
+      } else {
+        await db
+          .update(studentProfile)
+          .set({
+            ...(nextMajor !== undefined ? { major: nextMajor } : {}),
+            ...(nextBatch !== undefined ? { batch: nextBatch } : {}),
+            ...(nextSemester !== undefined ? { semester: nextSemester } : {}),
+            ...(nextDepartment !== undefined
+              ? { department: nextDepartment }
+              : {}),
+            ...(nextTitle !== undefined ? { title: nextTitle } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(studentProfile.userId, input.userId));
+      }
+    } else if (nextRole === "LECTURER") {
+      const existing = await db
+        .select({ id: lecturerProfile.id })
+        .from(lecturerProfile)
+        .where(eq(lecturerProfile.userId, input.userId))
+        .limit(1);
+      if (!existing[0]) {
+        await db.insert(lecturerProfile).values({
+          id: crypto.randomUUID(),
+          userId: input.userId,
+          major: nextMajor ?? null,
+          department: nextDepartment ?? null,
+          title: nextTitle ?? null,
+        });
+      } else {
+        await db
+          .update(lecturerProfile)
+          .set({
+            ...(nextMajor !== undefined ? { major: nextMajor } : {}),
+            ...(nextDepartment !== undefined
+              ? { department: nextDepartment }
+              : {}),
+            ...(nextTitle !== undefined ? { title: nextTitle } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(lecturerProfile.userId, input.userId));
+      }
+    }
+  }
+
+  const detailAfter = await getAdminUserDetail(input.userId, {
+    includeDeleted: false,
   });
 
-  return getAdminUserDetail(input.userId, { includeDeleted: false });
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  const track = (key: string, from: unknown, to: unknown) => {
+    if (from !== to) changes[key] = { from, to };
+  };
+
+  track("role", detailBefore.role, detailAfter.role);
+  track("isActive", detailBefore.isActive, detailAfter.isActive);
+  track("name", detailBefore.name, detailAfter.name);
+  track("campus", detailBefore.campus, detailAfter.campus);
+  track("nim", detailBefore.nim, detailAfter.nim);
+  track("nidn", detailBefore.nidn, detailAfter.nidn);
+  track("major", detailBefore.major, detailAfter.major);
+  track("batch", detailBefore.batch, detailAfter.batch);
+  track("semester", detailBefore.semester, detailAfter.semester);
+  track("department", detailBefore.department, detailAfter.department);
+  track("title", detailBefore.title, detailAfter.title);
+
+  if (Object.keys(changes).length > 0) {
+    await createAuditLog({
+      actorId: input.actorId,
+      action: "user.update",
+      entityType: "user",
+      entityId: input.userId,
+      metadata: { changes },
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+    });
+  }
+
+  return detailAfter;
 }
 
 export async function softDeleteAdminUser(input: {

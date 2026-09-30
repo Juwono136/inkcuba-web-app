@@ -50,6 +50,13 @@
       "when": 1790760962123,
       "tag": "0006_portfolio_links",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790767143743,
+      "tag": "0007_directory_options",
+      "breakpoints": true
     }
   ]
 }

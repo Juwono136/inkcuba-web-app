@@ -26,6 +26,8 @@ export const studentProfile = pgTable(
     portfolioLinks: jsonb("portfolio_links").$type<
       { label: string; url: string }[]
     >(),
+    department: text("department"),
+    title: text("title"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

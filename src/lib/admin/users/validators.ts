@@ -19,18 +19,94 @@ export const adminUserListQuerySchema = z.object({
   status: z.enum(["ALL", "ACTIVE", "INACTIVE"]).default("ALL"),
   sortBy: z.enum(USER_SORT_FIELDS).default("createdAt"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
-  /** Soft-deleted users only when true. */
   trash: z.boolean().default(false),
 });
+
+/** Empty string / null clears the field; omit leaves unchanged. */
+const clearableText = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined) return undefined;
+    if (value == null) return null;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? null : trimmed;
+  });
+
+const clearableId = (label: string) =>
+  clearableText.superRefine((value, ctx) => {
+    if (value == null || value === undefined) return;
+    if (value.length < 5) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${label} must be at least 5 characters`,
+      });
+    }
+    if (value.length > 32) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${label} must be at most 32 characters`,
+      });
+    }
+    if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${label} may only include letters, numbers, _ and -`,
+      });
+    }
+  });
 
 export const adminUserPatchSchema = z
   .object({
     role: z.enum(["STUDENT", "LECTURER", "ADMIN"]).optional(),
     isActive: z.boolean().optional(),
+    name: z
+      .string()
+      .trim()
+      .min(2, "Name must be at least 2 characters")
+      .max(100, "Name must be at most 100 characters")
+      .regex(
+        /^[\p{L}\p{M}\s'.-]+$/u,
+        "Name may only include letters, spaces, and ' . -",
+      )
+      .optional(),
+    campus: clearableText,
+    nim: clearableId("Student ID"),
+    nidn: clearableId("Lecturer ID"),
+    major: clearableText,
+    batch: clearableText,
+    semester: clearableText,
+    department: clearableText,
+    title: clearableText.superRefine((value, ctx) => {
+      if (value == null || value === undefined) return;
+      if (value.length < 2) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Title must be at least 2 characters",
+        });
+      }
+      if (value.length > 80) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Title must be at most 80 characters",
+        });
+      }
+    }),
   })
   .refine(
-    (value) => value.role !== undefined || value.isActive !== undefined,
-    { message: "Provide at least one of: role, isActive" },
+    (value) =>
+      value.role !== undefined ||
+      value.isActive !== undefined ||
+      value.name !== undefined ||
+      value.campus !== undefined ||
+      value.nim !== undefined ||
+      value.nidn !== undefined ||
+      value.major !== undefined ||
+      value.batch !== undefined ||
+      value.semester !== undefined ||
+      value.department !== undefined ||
+      value.title !== undefined,
+    { message: "Provide at least one field to update" },
   );
 
 export type AdminUserListQuery = z.infer<typeof adminUserListQuerySchema>;

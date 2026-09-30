@@ -97,10 +97,14 @@ Returns aggregated identity + public profile for the current user. Upserts an em
 
 ### `PATCH /api/settings/profile`
 
-Updates public profile fields (bio, skills, social URLs, portfolio URLs).  
+Updates public profile fields (bio, skills, social URLs, portfolio links).  
 Bio HTML is sanitized server-side (allowed: `p`, `br`, `strong`/`b`, `em`/`i`, `ul`/`ol`/`li`, `a` with http(s)/mailto). Plain-text length max **8000**.  
 Custom links: up to **4** `{ label, url }` objects (`portfolioLinks`); labels are user-defined (max 40 chars) and unique.  
 **403** for `ADMIN`. Students and lecturers only.
+
+### `PATCH /api/settings/identity`
+
+Lecturers only. Updates **name** and optional **title**. Audited as `user.self_update_identity`.
 
 ### `POST /api/settings/avatar`
 
@@ -151,13 +155,19 @@ Full read-only detail (identity + profile fields) including trash rows.
 
 ### `PATCH /api/admin/users/[userId]`
 
-Body (at least one field required):
+Body (at least one field required). Mutable fields:
 
-```json
-{ "role": "STUDENT|LECTURER|ADMIN", "isActive": true }
-```
+| Field | Notes |
+|---|---|
+| `role` | `STUDENT` \| `LECTURER` \| `ADMIN` |
+| `isActive` | boolean; deactivating revokes sessions |
+| `name` | 2–100 chars |
+| `campus` | Must match an **active** Directory Option (`campus`), or `null`/empty to clear |
+| `nim` / `nidn` | Student / Lecturer IDs (alphanumeric + `_` `-`), or clear |
+| `major` / `batch` / `semester` / `department` | Active Directory Options, or clear |
+| `title` | Free text (2–80) or clear |
 
-Only `role` and `isActive` are mutable. Deactivating revokes all sessions. Guards: cannot change own role / deactivate self; cannot demote or deactivate the last active admin.
+Guards: cannot change own role / deactivate self; cannot demote or deactivate the last active admin. Profile rows are upserted as needed. Audit metadata includes per-field `{ from, to }` under `changes`.
 
 ### `DELETE /api/admin/users/[userId]`
 
@@ -170,6 +180,42 @@ Permanent delete — only allowed when the user is already in trash. Cascades re
 ### `POST /api/admin/users/[userId]/restore`
 
 Clears `deleted_at`. Restored accounts remain **inactive** until an admin activates them.
+
+---
+
+## Admin Directory Options API (ADMIN only)
+
+### `GET /api/admin/directory-options`
+
+Paginated list. Query: `category?`, `activeOnly?`, `q?` (label/value search), `page` (default 1), `pageSize` (default 20, max 100).
+
+Response: `{ items, total, page, pageSize, totalPages }`. Seeds default campuses when the campus category is empty.
+
+### `POST /api/admin/directory-options`
+
+Create option: `{ category, label, isActive? }`.
+
+- `value` is set server-side to the trimmed label (immutable afterward)
+- `sortOrder` is appended at the end of the category
+
+### `PATCH /api/admin/directory-options/[optionId]`
+
+Update `{ label?, isActive? }` (at least one required). Does not change `value` or `sortOrder`.
+
+### `POST /api/admin/directory-options/reorder`
+
+Reorder within a category: `{ category, orderedIds }`.
+
+- `orderedIds` must be a permutation of a **contiguous** slice of the category’s current order (typically the current page with no search filter)
+- Idempotent when order is unchanged; audited as `directory_option.reorder`
+
+### `DELETE /api/admin/directory-options/[optionId]`
+
+Hard-delete option (idempotent).
+
+### `GET /api/directory-options`
+
+Public read of **active** options (optional `category`). Used by admin selects and future forms.
 
 ---
 

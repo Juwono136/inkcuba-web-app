@@ -20,7 +20,8 @@ export const metadata = {
 const modules = [
   {
     title: "User Management",
-    description: "Review accounts, roles, campus, and BINUSIAN identity fields.",
+    description:
+      "Review accounts, roles, and identity fields. Campus, major, and related selects use Directory Options.",
     href: "/dashboard/admin/users",
     icon: Users,
     cardClass: "from-sky-50 to-white",

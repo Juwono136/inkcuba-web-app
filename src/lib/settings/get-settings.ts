@@ -19,6 +19,8 @@ export type SettingsIdentity = {
   roleLabel: string;
   campus: string | null;
   binusianId: string | null;
+  nim: string | null;
+  nidn: string | null;
   major: string | null;
   batch: string | null;
   semester: string | null;
@@ -26,6 +28,8 @@ export type SettingsIdentity = {
   alumniLabel: string | null;
   department: string | null;
   title: string | null;
+  /** Lecturers may edit name + title from My Settings. */
+  canEditNameAndTitle: boolean;
 };
 
 export type SettingsPublicProfile = {
@@ -177,6 +181,8 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
     major = emptyOrNull(profile.major);
     batch = emptyOrNull(profile.batch);
     semester = emptyOrNull(profile.semester);
+    department = emptyOrNull(profile.department);
+    title = emptyOrNull(profile.title);
     isAlumni = profile.isAlumni;
     if (isAlumni) {
       alumniLabel = batch
@@ -203,6 +209,8 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
       roleLabel: formatUserRole(role),
       campus: emptyOrNull(dbUser.campus),
       binusianId,
+      nim: emptyOrNull(dbUser.nim),
+      nidn: emptyOrNull(dbUser.nidn),
       major,
       batch,
       semester,
@@ -210,6 +218,7 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
       alumniLabel,
       department,
       title,
+      canEditNameAndTitle: role === "LECTURER",
     },
     image: dbUser.image,
     canEditPublicProfile,

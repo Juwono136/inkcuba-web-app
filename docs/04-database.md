@@ -94,18 +94,29 @@ Written from Better Auth `databaseHooks.session.create.after`. Rows older than 7
 
 `bio`, `major`, `batch`, `semester`, `is_alumni`, `skills[]`,
 `linkedin_url`, `github_url`, `instagram_url`, `youtube_url`, `twitter_url`,
-`tiktok_url`, `portfolio_links` (jsonb array of `{ label, url }`, max 4)
+`tiktok_url`, `portfolio_links` (jsonb `{ label, url }[]`), `department`, `title`
 
 ### `lecturer_profile`
 
 `bio`, `major`, `department`, `title`, `skills[]`,
 `linkedin_url`, `github_url`, `instagram_url`, `youtube_url`, `twitter_url`,
-`tiktok_url`, `portfolio_links` (jsonb array of `{ label, url }`, max 4)
+`tiktok_url`, `portfolio_links` (jsonb `{ label, url }[]`)
 
 Both reference `user.id` with cascade delete.
 
+### `directory_option`
+
+Admin-managed selectable values for identity forms.
+
+| Column | Notes |
+|---|---|
+| `category` | enum: `campus`, `major`, `batch`, `semester`, `department` |
+| `label` | Display name shown in admin + selects |
+| `value` | Stored key used on profiles (unique per category). Set from label on create; not editable afterward |
+| `sort_order` / `is_active` | Display order (managed via drag-and-drop reorder API) + soft disable without deleting |
+
 Public-profile fields are editable in **My Settings** for students/lecturers.
-Identity fields (major/batch/campus/etc.) remain admin-managed and read-only in Settings.
+Identity fields (campus/major/IDs/etc.) are admin-managed; lecturers may edit **name** + **title** only.
 
 ---
 

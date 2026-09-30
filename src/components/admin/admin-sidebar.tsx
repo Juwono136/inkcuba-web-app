@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FolderKanban,
   LayoutDashboard,
+  ListTree,
   Menu,
   Settings,
   Users,
@@ -27,6 +28,7 @@ const ICONS = {
   overview: LayoutDashboard,
   settings: Settings,
   users: Users,
+  directory: ListTree,
   portfolios: FolderKanban,
   audit: ClipboardList,
 } as const;
