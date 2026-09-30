@@ -10,7 +10,7 @@ export {
   SESSION_MAX_AGE_SECONDS,
   generateDefaultAvatarUrl,
 } from "@/lib/auth/constants";
-export { getDashboardPath, isDashboardRoute } from "@/lib/auth/redirect";
+export { getDashboardPath, getSettingsPath, isDashboardRoute } from "@/lib/auth/redirect";
 export {
   getServerSession,
   requireServerSession,

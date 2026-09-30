@@ -96,3 +96,39 @@ If you did not request this, you can ignore this email.
 
 — ${siteConfig.name}`;
 }
+
+export function passwordChangedEmailTemplate(name: string): string {
+  const safeName = escapeHtml(name);
+
+  return buildEmailLayout({
+    preheader: "Your inkcuba password was changed successfully.",
+    title: "Password changed",
+    body: `
+      <p style="margin:0 0 16px;">Hello <strong>${safeName}</strong>,</p>
+      <p style="margin:0 0 16px;">
+        This is a confirmation that the password for your
+        <strong>${escapeHtml(siteConfig.name)}</strong> account was changed successfully.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#475569;">
+            <strong style="color:#0F172A;">Security notice</strong><br />
+            Other active sessions on your account have been signed out. If you did not make this change, reset your password immediately and contact support.
+          </td>
+        </tr>
+      </table>
+    `,
+    footerNote:
+      "If you did not change your password, please secure your account right away.",
+  });
+}
+
+export function passwordChangedEmailText(name: string): string {
+  return `Hello ${name},
+
+This is a confirmation that the password for your ${siteConfig.name} account was changed successfully.
+
+Other active sessions on your account have been signed out. If you did not make this change, reset your password immediately and contact support.
+
+— ${siteConfig.name}`;
+}

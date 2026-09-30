@@ -6,12 +6,19 @@ export function getDashboardPath(role?: string | null): string {
     case "LECTURER":
       return `${AUTH_ROUTES.dashboard}/lecturer`;
     case "ADMIN":
-    case "SUPER_ADMIN":
       return `${AUTH_ROUTES.dashboard}/admin`;
     case "STUDENT":
     default:
       return `${AUTH_ROUTES.dashboard}/student`;
   }
+}
+
+export function getSettingsPath(role?: string | null): string {
+  if ((role as UserRole) === "ADMIN") {
+    return `${AUTH_ROUTES.dashboard}/admin/settings`;
+  }
+
+  return `${AUTH_ROUTES.dashboard}/settings`;
 }
 
 export function isAuthRoute(pathname: string): boolean {

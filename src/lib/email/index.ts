@@ -11,6 +11,9 @@ export {
   verificationEmailText,
   resetPasswordEmailTemplate,
   resetPasswordEmailText,
+  passwordChangedEmailTemplate,
+  passwordChangedEmailText,
 } from "@/lib/email/templates";
 export { sendVerificationEmail } from "@/lib/email/services/verification";
 export { sendResetPasswordEmail } from "@/lib/email/services/reset-password";
+export { sendPasswordChangedEmail } from "@/lib/email/services/password-changed";

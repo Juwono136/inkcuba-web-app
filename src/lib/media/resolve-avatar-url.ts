@@ -1,14 +1,33 @@
 const AVATAR_KEY_PREFIX = "avatars/";
 
+/**
+ * Extract a SeaweedFS avatar object key from a stored image URL.
+ * Supports full storage URLs, media proxy paths, and raw keys.
+ */
 export function extractAvatarStorageKey(url: string): string | null {
+  const trimmed = url.trim();
+
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith(AVATAR_KEY_PREFIX)) {
+    return trimmed.split("?")[0] ?? trimmed;
+  }
+
+  const apiMarker = "/api/media/avatars/";
+  const apiIndex = trimmed.indexOf(apiMarker);
+
+  if (apiIndex !== -1) {
+    return (trimmed.slice(apiIndex + "/api/media/".length).split("?")[0] ?? null);
+  }
+
   const marker = `/${AVATAR_KEY_PREFIX}`;
-  const index = url.indexOf(marker);
+  const index = trimmed.indexOf(marker);
 
   if (index === -1) {
     return null;
   }
 
-  return url.slice(index + 1);
+  return trimmed.slice(index + 1).split("?")[0] ?? null;
 }
 
 export function resolveUserImageUrl(

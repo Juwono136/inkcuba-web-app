@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { siteConfig } from "@/config/site";
 import { useSession } from "@/lib/auth/client";
-import { AUTH_ROUTES } from "@/lib/auth/constants";
-import { getDashboardPath } from "@/lib/auth/redirect";
+import { getDashboardPath, getSettingsPath } from "@/lib/auth/redirect";
 import { resolveUserRole } from "@/lib/auth/permissions";
 import { formatUserRole } from "@/lib/auth/role-labels";
 
@@ -35,7 +34,9 @@ export function AuthNavActions({
   }
 
   if (isAuthenticated && user) {
-    const dashboardPath = getDashboardPath(resolveUserRole(user));
+    const role = resolveUserRole(user);
+    const dashboardPath = getDashboardPath(role);
+    const settingsPath = getSettingsPath(role);
 
     if (mobileOpen) {
       return (
@@ -48,7 +49,7 @@ export function AuthNavActions({
               </p>
               <p className="truncate text-xs text-slate-500">{user.email}</p>
               <span className="mt-1 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                {formatUserRole(resolveUserRole(user))}
+                {formatUserRole(role)}
               </span>
             </div>
           </div>
@@ -61,10 +62,7 @@ export function AuthNavActions({
               </Link>
             </Button>
             <Button asChild variant="outline" className="w-full justify-start border-slate-900">
-              <Link
-                href={`${AUTH_ROUTES.dashboard}/settings`}
-                onClick={onMobileNavigate}
-              >
+              <Link href={settingsPath} onClick={onMobileNavigate}>
                 <Settings className="h-4 w-4" />
                 My Settings
               </Link>

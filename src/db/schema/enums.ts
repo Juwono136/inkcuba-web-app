@@ -4,7 +4,6 @@ export const userRoleEnum = pgEnum("user_role", [
   "STUDENT",
   "LECTURER",
   "ADMIN",
-  "SUPER_ADMIN",
 ]);
 
 export const portfolioStatusEnum = pgEnum("portfolio_status", [

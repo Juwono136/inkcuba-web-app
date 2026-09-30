@@ -23,12 +23,8 @@ async function main() {
   const args = parseArgs();
   const email = args.email;
   const password = args.password;
-  const name = args.name ?? "Super Admin";
-  const role = (args.role ?? "SUPER_ADMIN") as
-    | "SUPER_ADMIN"
-    | "ADMIN"
-    | "LECTURER"
-    | "STUDENT";
+  const name = args.name ?? "Administrator";
+  const role = "ADMIN" as const;
 
   if (!email || !password) {
     console.error(

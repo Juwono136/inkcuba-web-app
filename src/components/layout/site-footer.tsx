@@ -8,7 +8,6 @@ const footerLinks = [
   { label: "Explore", href: siteConfig.links.explore },
   { label: "Courses", href: siteConfig.links.courses },
   { label: "Campus Stats", href: siteConfig.links.stats },
-  { label: "Sign In", href: siteConfig.links.signIn },
 ];
 
 export function SiteFooter() {

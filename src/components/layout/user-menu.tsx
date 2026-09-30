@@ -21,7 +21,7 @@ import {
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AUTH_ROUTES } from "@/lib/auth/constants";
 import { signOut } from "@/lib/auth/client";
-import { getDashboardPath } from "@/lib/auth/redirect";
+import { getDashboardPath, getSettingsPath } from "@/lib/auth/redirect";
 import { resolveUserRole } from "@/lib/auth/permissions";
 import { formatUserRole } from "@/lib/auth/role-labels";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,7 @@ export function UserMenu({
   const role = resolveUserRole(user);
   const roleLabel = formatUserRole(role);
   const dashboardPath = getDashboardPath(role);
+  const settingsPath = getSettingsPath(role);
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -143,7 +144,7 @@ export function UserMenu({
 
             <DropdownMenuItem asChild className="rounded-xl">
               <Link
-                href={`${AUTH_ROUTES.dashboard}/settings`}
+                href={settingsPath}
                 onClick={handleNavigate}
                 className="flex cursor-pointer items-center gap-2"
               >

@@ -1,13 +1,12 @@
 export const BINUS_CAMPUSES = [
-  "Anggrek Campus",
-  "Syahdan Campus",
-  "Alam Sutera Campus",
-  "Senayan Campus (JWC Campus)",
-  "FX Sudirman Campus",
-  "Bekasi Campus",
-  "Bandung Campus",
-  "Malang Campus",
-  "Semarang Campus",
+  "BINUS @Kemanggisan",
+  "BINUS @Alam Sutera",
+  "BINUS @Bekasi",
+  "BINUS @Bandung",
+  "BINUS @Malang",
+  "BINUS @Semarang",
+  "BINUS @Senayan",
+  "BINUS @FX Sudirman",
 ] as const;
 
 export type BinusCampus = (typeof BINUS_CAMPUSES)[number];

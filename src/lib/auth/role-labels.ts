@@ -4,7 +4,6 @@ const ROLE_LABELS: Record<UserRole, string> = {
   STUDENT: "Student",
   LECTURER: "Lecturer",
   ADMIN: "Administrator",
-  SUPER_ADMIN: "Super Administrator",
 };
 
 export function formatUserRole(role: string | null | undefined): string {

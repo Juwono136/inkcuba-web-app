@@ -1,0 +1,98 @@
+# 01 — Product Overview
+
+## What is inkcuba?
+
+**inkcuba** is a verified academic portfolio and project showcase platform for **BINUS University**. It acts as an official exhibition hall where student work is submitted through lecturer-managed workspaces, reviewed by faculty, and published with institutional credibility.
+
+### Core goals
+
+1. Showcase verified BINUS student portfolios to the public.
+2. Enforce institutional identity (`@binus.edu` / `@binus.ac.id`).
+3. Support role-based workflows for students, lecturers, and admins.
+4. Provide a secure, professional authentication and session model.
+5. Integrate email, object storage, Redis, and health monitoring as production foundations.
+
+---
+
+## User roles
+
+Aligned with the PRD (Student, Lecturer, Admin + public visitor):
+
+| Role | Email domain (typical) | Purpose |
+|---|---|---|
+| **STUDENT** | `@binus.edu` | Create account, manage student dashboard, submit portfolios (workspace features planned) |
+| **LECTURER** | `@binus.ac.id` | Review submissions, manage courses/workspaces (planned) |
+| **ADMIN** | Seeded / elevated | Platform operations: user management, content moderation override, audit logs, reporting |
+
+Public visitors browse without an account.
+
+Role is inferred automatically at registration:
+
+- `@binus.edu` → `STUDENT`
+- `@binus.ac.id` → `LECTURER`
+
+Admins are created via seed script, not public self-registration.
+
+---
+
+## Feature status matrix
+
+### Implemented (live)
+
+| Area | Status | Notes |
+|---|---|---|
+| Public landing / homepage | Done | Hero, portfolio showcase (mock), about, courses preview, team, BINUS social, CTA |
+| Explore / Courses / Campus Stats pages | Done | Public browsing surfaces |
+| Portfolio search dialog (⌘K) | Done | Client-side search over showcase data |
+| Sign up / Sign in | Done | BINUS email + password only |
+| Email verification | Done | Required before sign-in |
+| Forgot / Reset password | Done | Token email + revoke sessions on reset |
+| Remember me (device credentials) | Done | Separate from session expiry |
+| Session (max 7 days) | Done | Better Auth cookie session |
+| Route protection (auth ↔ dashboard) | Done | `proxy.ts` + server redirects |
+| User menu dropdown | Done | Dashboard, settings, logout + confirm modal |
+| Avatar upload (SeaweedFS) | Done | Upload on form submit only |
+| Media proxy for private storage | Done | `/api/media/[...key]` |
+| Dashboards (student / lecturer / admin) | Shell | Role-gated placeholder workspaces |
+| My Settings page | Done | Identity (RO), photo, public profile, password |
+| Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
+| Health check API | Done | Basic + detailed (token) |
+| Redis rate limiting | Done | Auth + avatar upload |
+| Email templates | Done | Verification + reset + password-changed |
+| Logging (Pino) | Done | Redacted secrets |
+
+### Schema ready / UI not fully built yet
+
+| Area | Status | Notes |
+|---|---|---|
+| Student / lecturer profiles | Schema ready | Tables exist; profile editing UI planned |
+| Workspaces / assignments / groups | Schema ready | Course workspace flow planned |
+| Portfolios / media / reviews | Schema ready | Submission & review workflow planned |
+| Audit logs | Schema ready | Audit helpers exist |
+
+---
+
+## Design language
+
+- **Typography:** Plus Jakarta Sans (body), Space Grotesk (headings)
+- **Visual style:** Neo-brutalism accents (`border-2 border-slate-900`, `shadow-inkcuba`)
+- **Primary color:** Sky blue (`sky-500`)
+- **Motion:** Framer Motion for intentional UI presence
+- **Toasts:** Sonner, top-center
+- **Components:** shadcn/ui + Radix primitives
+
+---
+
+## Institutional constraints
+
+1. Registration and login require BINUS emails only.
+2. No OAuth / Google / Firebase social login (Firebase removed).
+3. Auth is form-based email + password via Better Auth.
+4. Public exhibition content should represent faculty-verified work (workflow planned on top of existing schema).
+
+---
+
+## Next reading
+
+- [02 — Architecture](./02-architecture.md)
+- [10 — User Manual](./10-user-manual.md)

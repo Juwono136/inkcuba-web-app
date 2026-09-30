@@ -15,6 +15,20 @@
       "when": 1781172151658,
       "tag": "0001_rainy_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787308800000,
+      "tag": "0002_remove_super_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787307394591,
+      "tag": "0003_typical_firestar",
+      "breakpoints": true
     }
   ]
 }
