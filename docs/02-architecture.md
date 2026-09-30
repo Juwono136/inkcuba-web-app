@@ -38,32 +38,34 @@ src/
 │   ├── api/
 │   │   ├── auth/[...all]/ # Better Auth handler
 │   │   ├── auth/avatar/    # Avatar upload/delete (registration)
-│   │   ├── settings/       # Settings aggregate / profile / avatar / notify
+│   │   ├── settings/       # Settings aggregate / profile / avatar / login-history / notify
 │   │   ├── media/[...key]/# Authenticated storage proxy
 │   │   └── health/         # Health checks
 │   ├── auth/               # Sign-in, sign-up, forgot/reset password
 │   ├── dashboard/
-│   │   ├── (workspace)/    # Student/lecturer chrome (SiteHeader/Footer)
-│   │   └── admin/          # AdminShell (sidebar + breadcrumbs)
+│   │   ├── (workspace)/    # Student/lecturer: SiteHeader + collapsible sidebar
+│   │   └── admin/          # AdminShell (brand console)
 │   ├── courses|explore|stats/
 │   └── page.tsx            # Landing
 ├── components/
 │   ├── admin/              # Admin console shell / sidebar / navbar
+│   ├── workspace/          # Student/lecturer shell / sidebar / navbar
 │   ├── auth/               # Auth forms + shell
-│   ├── dashboard/          # Dashboard shell
+│   ├── dashboard/          # Dashboard page header
 │   ├── landing/            # Homepage sections
-│   ├── layout/             # Header, footer, user menu
+│   ├── layout/             # Header, footer, user menu, scroll-to-top
 │   ├── settings/           # My Settings sections
 │   ├── portfolio/          # Showcase cards
-│   ├── providers/          # Query + session watcher
+│   ├── providers/          # Query + session watcher + global scroll-up
 │   ├── search/             # ⌘K search dialog
 │   └── ui/                 # Design-system primitives
 ├── config/                 # Env + site + brand + storage env
 ├── data/                   # Mock showcase datasets
 ├── db/                     # Drizzle client + schema
 ├── lib/
-│   ├── admin/              # Admin nav + breadcrumbs helpers
-│   ├── auth/               # Auth helpers, permissions, remember-me
+│   ├── admin/              # Admin nav, breadcrumbs, user-management service
+│   ├── workspace/          # Student/lecturer nav + breadcrumbs
+│   ├── auth/               # Auth helpers, permissions, remember-me, login-history
 │   ├── email/              # Templates + send services
 │   ├── settings/           # Settings loaders + profile updates
 │   ├── storage/            # SeaweedFS client + avatar helpers
@@ -113,7 +115,20 @@ Students and lecturers edit public profile fields via `PATCH /api/settings/profi
 - Bio is authored with TipTap (`RichTextEditor`): StarterKit with **built-in Link disabled** (`link: false`) plus one configured `@tiptap/extension-link` to avoid duplicate-extension warnings.
 - Toolbar actions preserve editor selection (`onMouseDown` preventDefault) so bold/italic/lists/links work reliably.
 - Server sanitizes bio HTML (`src/lib/settings/sanitize-bio.ts`) before persist.
-- UI confirms save and destructive removals (skills / filled portfolio links).
+- UI confirms save and destructive removals (skills / filled custom links).
+- Bio plain-text limit is **8000** characters; custom links store up to **4** `{ label, url }` entries in `portfolio_links` jsonb.
+
+### Login history
+
+On every successful Better Auth session create, `databaseHooks.session.create.after` writes a `login_history` row (IP + user agent). My Settings loads the last **7 days** via `GET /api/settings/login-history` (paginated; older rows pruned on read).
+
+### Admin User Management
+
+1. ADMIN-only APIs under `/api/admin/users` list, patch (`role` / `isActive`), soft-delete, restore, and hard-delete.
+2. Soft-deleted rows keep `deleted_at` for **30 days**; list reads opportunistically purge expired trash.
+3. Hard delete removes the DB user (cascades) and best-effort deletes SeaweedFS avatar keys.
+4. `session.create.before` blocks inactive or soft-deleted accounts from signing in.
+5. Mutations write `audit_log` entries (`user.update`, `user.soft_delete`, `user.restore`, `user.hard_delete`).
 
 ### Avatar display
 

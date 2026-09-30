@@ -24,6 +24,16 @@ import type {
   SettingsPublicProfile,
 } from "@/lib/settings/get-settings";
 import { plainTextFromHtml } from "@/lib/settings/plain-text";
+import {
+  BIO_MAX_PLAIN_LENGTH,
+} from "@/lib/settings/bio-limits";
+import {
+  emptyProfileCustomLink,
+  finalizeProfileCustomLinks,
+  PROFILE_CUSTOM_LINK_LABEL_MAX,
+  PROFILE_CUSTOM_LINKS_MAX,
+  type ProfileCustomLink,
+} from "@/lib/settings/profile-links";
 import { publicProfileSchema } from "@/lib/validators/settings";
 
 type PublicProfileSectionProps = {
@@ -51,10 +61,13 @@ export function PublicProfileSection({
   const [youtubeUrl, setYoutubeUrl] = useState(initialProfile.youtubeUrl ?? "");
   const [twitterUrl, setTwitterUrl] = useState(initialProfile.twitterUrl ?? "");
   const [tiktokUrl, setTiktokUrl] = useState(initialProfile.tiktokUrl ?? "");
-  const [portfolioUrls, setPortfolioUrls] = useState<string[]>(
-    initialProfile.portfolioUrls?.length
-      ? [...initialProfile.portfolioUrls]
-      : [""],
+  const [portfolioLinks, setPortfolioLinks] = useState<ProfileCustomLink[]>(
+    initialProfile.portfolioLinks?.length
+      ? initialProfile.portfolioLinks.map((link) => ({
+          label: link.label,
+          url: link.url,
+        }))
+      : [emptyProfileCustomLink()],
   );
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,6 +75,20 @@ export function PublicProfileSection({
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval>(null);
 
   const bioLength = plainTextFromHtml(bio).length;
+
+  function buildPayload() {
+    return {
+      bio,
+      skills,
+      linkedinUrl: linkedinUrl || undefined,
+      githubUrl: githubUrl || undefined,
+      instagramUrl: instagramUrl || undefined,
+      youtubeUrl: youtubeUrl || undefined,
+      twitterUrl: twitterUrl || undefined,
+      tiktokUrl: tiktokUrl || undefined,
+      portfolioLinks: finalizeProfileCustomLinks(portfolioLinks),
+    };
+  }
 
   function addSkill() {
     const next = skillDraft.trim();
@@ -89,18 +116,7 @@ export function PublicProfileSection({
   function requestSave() {
     setErrors({});
 
-    const payload = {
-      bio,
-      skills,
-      linkedinUrl: linkedinUrl || undefined,
-      githubUrl: githubUrl || undefined,
-      instagramUrl: instagramUrl || undefined,
-      youtubeUrl: youtubeUrl || undefined,
-      twitterUrl: twitterUrl || undefined,
-      tiktokUrl: tiktokUrl || undefined,
-      portfolioUrls: portfolioUrls.map((url) => url.trim()).filter(Boolean),
-    };
-
+    const payload = buildPayload();
     const parsed = publicProfileSchema.safeParse(payload);
 
     if (!parsed.success) {
@@ -114,9 +130,25 @@ export function PublicProfileSection({
       return;
     }
 
-    if (bioLength > 2000) {
-      setErrors({ bio: "Bio must be at most 2000 characters" });
-      toast.error("Bio must be at most 2000 characters");
+    if (bioLength > BIO_MAX_PLAIN_LENGTH) {
+      setErrors({
+        bio: `Bio must be at most ${BIO_MAX_PLAIN_LENGTH} characters`,
+      });
+      toast.error(`Bio must be at most ${BIO_MAX_PLAIN_LENGTH} characters`);
+      return;
+    }
+
+    // Reject half-filled custom link rows before save
+    const incomplete = portfolioLinks.some(
+      (link) =>
+        (link.label.trim() && !link.url.trim()) ||
+        (!link.label.trim() && link.url.trim()),
+    );
+    if (incomplete) {
+      setErrors({
+        portfolioLinks: "Each custom link needs both a name and a URL",
+      });
+      toast.error("Each custom link needs both a name and a URL");
       return;
     }
 
@@ -126,18 +158,7 @@ export function PublicProfileSection({
   async function handleSave() {
     setErrors({});
 
-    const payload = {
-      bio,
-      skills,
-      linkedinUrl: linkedinUrl || undefined,
-      githubUrl: githubUrl || undefined,
-      instagramUrl: instagramUrl || undefined,
-      youtubeUrl: youtubeUrl || undefined,
-      twitterUrl: twitterUrl || undefined,
-      tiktokUrl: tiktokUrl || undefined,
-      portfolioUrls: portfolioUrls.map((url) => url.trim()).filter(Boolean),
-    };
-
+    const payload = buildPayload();
     const parsed = publicProfileSchema.safeParse(payload);
 
     if (!parsed.success) {
@@ -151,10 +172,12 @@ export function PublicProfileSection({
       throw new Error(parsed.error.issues[0]?.message ?? "Invalid profile");
     }
 
-    if (bioLength > 2000) {
-      setErrors({ bio: "Bio must be at most 2000 characters" });
-      toast.error("Bio must be at most 2000 characters");
-      throw new Error("Bio must be at most 2000 characters");
+    if (bioLength > BIO_MAX_PLAIN_LENGTH) {
+      setErrors({
+        bio: `Bio must be at most ${BIO_MAX_PLAIN_LENGTH} characters`,
+      });
+      toast.error(`Bio must be at most ${BIO_MAX_PLAIN_LENGTH} characters`);
+      throw new Error(`Bio must be at most ${BIO_MAX_PLAIN_LENGTH} characters`);
     }
 
     setSaving(true);
@@ -177,6 +200,12 @@ export function PublicProfileSection({
       }
 
       onSaved(data.data);
+      const savedLinks = data.data.publicProfile?.portfolioLinks ?? [];
+      setPortfolioLinks(
+        savedLinks.length > 0
+          ? savedLinks.map((link) => ({ ...link }))
+          : [emptyProfileCustomLink()],
+      );
       toast.success("Public profile saved");
     } catch (error) {
       toast.error(
@@ -196,9 +225,9 @@ export function PublicProfileSection({
         prev.filter((item) => item !== pendingRemoval.value),
       );
     } else {
-      setPortfolioUrls((prev) => {
+      setPortfolioLinks((prev) => {
         const next = prev.filter((_, index) => index !== pendingRemoval.index);
-        return next.length > 0 ? next : [""];
+        return next.length > 0 ? next : [emptyProfileCustomLink()];
       });
     }
 
@@ -209,7 +238,7 @@ export function PublicProfileSection({
     pendingRemoval?.type === "skill"
       ? `Remove “${pendingRemoval.value}” from your skills list?`
       : pendingRemoval?.type === "portfolio"
-        ? "Remove this portfolio link from your public profile?"
+        ? "Remove this custom link from your public profile?"
         : "";
 
   return (
@@ -224,10 +253,12 @@ export function PublicProfileSection({
             <Label>Bio</Label>
             <span
               className={
-                bioLength > 2000 ? "text-xs text-red-500" : "text-xs text-slate-500"
+                bioLength > BIO_MAX_PLAIN_LENGTH
+                  ? "text-xs text-red-500"
+                  : "text-xs text-slate-500"
               }
             >
-              {bioLength}/2000
+              {bioLength}/{BIO_MAX_PLAIN_LENGTH}
             </span>
           </div>
           <RichTextEditor value={bio} onChange={setBio} disabled={saving} />
@@ -235,8 +266,8 @@ export function PublicProfileSection({
             <p className="text-xs text-red-500">{errors.bio}</p>
           ) : (
             <p className="text-xs text-slate-500">
-              Use bold, italic, lists, and links. Plain text is limited to 2,000
-              characters.
+              Use bold, italic, lists, and links. Plain text is limited to{" "}
+              {BIO_MAX_PLAIN_LENGTH.toLocaleString()} characters.
             </p>
           )}
         </div>
@@ -278,10 +309,10 @@ export function PublicProfileSection({
                     setPendingRemoval({ type: "skill", value: skill })
                   }
                   disabled={saving}
-                  className="inline-flex items-center gap-1 rounded-xl border-2 border-slate-900 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-slate-800 transition-colors hover:bg-sky-100"
+                  className="inline-flex max-w-full items-center gap-1 rounded-xl border-2 border-slate-900 bg-sky-50 px-2.5 py-1 text-xs font-semibold break-words text-slate-800 transition-colors hover:bg-sky-100 [overflow-wrap:anywhere]"
                 >
-                  {skill}
-                  <X className="h-3 w-3" />
+                  <span className="min-w-0">{skill}</span>
+                  <X className="h-3 w-3 shrink-0" />
                 </button>
               ))}
             </div>
@@ -352,59 +383,115 @@ export function PublicProfileSection({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label>Portfolio links (max 2)</Label>
-          {portfolioUrls.map((url, index) => (
-            <div key={`portfolio-${index}`} className="flex gap-2">
-              <Input
-                value={url}
-                onChange={(event) => {
-                  const next = [...portfolioUrls];
-                  next[index] = event.target.value;
-                  setPortfolioUrls(next);
-                }}
-                placeholder="https://..."
-                disabled={saving}
-                aria-invalid={Boolean(errors.portfolioUrls)}
-              />
-              {portfolioUrls.length > 1 ? (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Custom links (max {PROFILE_CUSTOM_LINKS_MAX})</Label>
+            <p className="text-xs text-slate-500">
+              Add personal or professional links with your own labels — for
+              example Behance, personal site, or a course showcase.
+            </p>
+          </div>
+          {portfolioLinks.map((link, index) => (
+            <div
+              key={`custom-link-${index}`}
+              className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto] sm:items-start"
+            >
+              <div className="min-w-0 space-y-1.5">
+                <Label
+                  htmlFor={`custom-link-label-${index}`}
+                  className="text-[11px] text-slate-500"
+                >
+                  Link name
+                </Label>
+                <Input
+                  id={`custom-link-label-${index}`}
+                  value={link.label}
+                  onChange={(event) => {
+                    const next = [...portfolioLinks];
+                    next[index] = {
+                      ...next[index],
+                      label: event.target.value.slice(
+                        0,
+                        PROFILE_CUSTOM_LINK_LABEL_MAX,
+                      ),
+                    };
+                    setPortfolioLinks(next);
+                  }}
+                  placeholder="e.g. Behance"
+                  disabled={saving}
+                  maxLength={PROFILE_CUSTOM_LINK_LABEL_MAX}
+                  aria-invalid={Boolean(errors.portfolioLinks)}
+                  className="min-w-0 rounded-xl border-2 border-slate-300 bg-white"
+                />
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <Label
+                  htmlFor={`custom-link-url-${index}`}
+                  className="text-[11px] text-slate-500"
+                >
+                  URL
+                </Label>
+                <Input
+                  id={`custom-link-url-${index}`}
+                  value={link.url}
+                  onChange={(event) => {
+                    const next = [...portfolioLinks];
+                    next[index] = { ...next[index], url: event.target.value };
+                    setPortfolioLinks(next);
+                  }}
+                  placeholder="https://..."
+                  disabled={saving}
+                  aria-invalid={Boolean(errors.portfolioLinks)}
+                  className="min-w-0 rounded-xl border-2 border-slate-300 bg-white"
+                />
+              </div>
+              {portfolioLinks.length > 1 ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="shrink-0 border-slate-900"
+                  className="mt-0 shrink-0 border-slate-900 sm:mt-6"
                   disabled={saving}
-                  aria-label={`Remove portfolio link ${index + 1}`}
+                  aria-label={`Remove custom link ${index + 1}`}
                   onClick={() => {
-                    if (url.trim()) {
+                    if (link.label.trim() || link.url.trim()) {
                       setPendingRemoval({ type: "portfolio", index });
                       return;
                     }
-                    setPortfolioUrls((prev) =>
-                      prev.filter((_, itemIndex) => itemIndex !== index),
-                    );
+                    setPortfolioLinks((prev) => {
+                      const next = prev.filter(
+                        (_, itemIndex) => itemIndex !== index,
+                      );
+                      return next.length > 0
+                        ? next
+                        : [emptyProfileCustomLink()];
+                    });
                   }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
-              ) : null}
+              ) : (
+                <span className="hidden sm:block" aria-hidden />
+              )}
             </div>
           ))}
-          {portfolioUrls.length < 2 ? (
+          {portfolioLinks.length < PROFILE_CUSTOM_LINKS_MAX ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="border-slate-900"
               disabled={saving}
-              onClick={() => setPortfolioUrls((prev) => [...prev, ""])}
+              onClick={() =>
+                setPortfolioLinks((prev) => [...prev, emptyProfileCustomLink()])
+              }
             >
               <Plus className="h-4 w-4" />
-              Add portfolio link
+              Add custom link
             </Button>
           ) : null}
-          {errors.portfolioUrls ? (
-            <p className="text-xs text-red-500">{errors.portfolioUrls}</p>
+          {errors.portfolioLinks ? (
+            <p className="text-xs text-red-500">{errors.portfolioLinks}</p>
           ) : null}
         </div>
 
@@ -419,7 +506,7 @@ export function PublicProfileSection({
             youtubeUrl={youtubeUrl}
             twitterUrl={twitterUrl}
             tiktokUrl={tiktokUrl}
-            portfolioUrls={portfolioUrls.map((url) => url.trim()).filter(Boolean)}
+            portfolioLinks={finalizeProfileCustomLinks(portfolioLinks)}
           />
         </div>
 
@@ -481,10 +568,10 @@ function UrlField({
   placeholder?: string;
 }) {
   return (
-    <div className="space-y-2">
-      <Label className="inline-flex items-center gap-2">
+    <div className="min-w-0 space-y-2">
+      <Label className="inline-flex max-w-full items-center gap-2">
         {icon}
-        {label}
+        <span className="truncate">{label}</span>
       </Label>
       <Input
         value={value}
@@ -492,8 +579,11 @@ function UrlField({
         placeholder={placeholder}
         disabled={disabled}
         aria-invalid={Boolean(error)}
+        className="min-w-0"
       />
-      {error ? <p className="text-xs text-red-500">{error}</p> : null}
+      {error ? (
+        <p className="text-xs break-words text-red-500">{error}</p>
+      ) : null}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   XTwitterIcon,
   YouTubeIcon,
 } from "@/components/icons/social-brand-icons";
+import type { ProfileCustomLink } from "@/lib/settings/profile-links";
 
 type SocialLinksPreviewProps = {
   linkedinUrl?: string | null;
@@ -19,7 +20,7 @@ type SocialLinksPreviewProps = {
   youtubeUrl?: string | null;
   twitterUrl?: string | null;
   tiktokUrl?: string | null;
-  portfolioUrls?: string[];
+  portfolioLinks?: ProfileCustomLink[];
 };
 
 type PreviewLink = {
@@ -35,7 +36,7 @@ export function SocialLinksPreview({
   youtubeUrl,
   twitterUrl,
   tiktokUrl,
-  portfolioUrls = [],
+  portfolioLinks = [],
 }: SocialLinksPreviewProps) {
   const links: PreviewLink[] = [
     linkedinUrl
@@ -56,18 +57,20 @@ export function SocialLinksPreview({
     tiktokUrl
       ? { href: tiktokUrl, label: "TikTok", icon: <TikTokIcon /> }
       : null,
-    ...portfolioUrls.filter(Boolean).map((href, index) => ({
-      href,
-      label: `Portfolio ${index + 1}`,
-      icon: <PortfolioLinkIcon />,
-    })),
+    ...portfolioLinks
+      .filter((link) => link.label.trim() && link.url.trim())
+      .map((link) => ({
+        href: link.url.trim(),
+        label: link.label.trim(),
+        icon: <PortfolioLinkIcon />,
+      })),
   ].filter(Boolean) as PreviewLink[];
 
   if (links.length === 0) {
     return (
       <p className="flex items-center gap-2 text-xs text-slate-500">
-        <Link2 className="h-3.5 w-3.5" />
-        Saved social links will appear here with their brand icons.
+        <Link2 className="h-3.5 w-3.5 shrink-0" />
+        Saved social and custom links will appear here with their labels.
       </p>
     );
   }
@@ -80,10 +83,11 @@ export function SocialLinksPreview({
           href={link.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl border-2 border-slate-900 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition-colors hover:bg-sky-50"
+          title={link.href}
+          className="inline-flex max-w-full items-center gap-2 rounded-xl border-2 border-slate-900 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition-colors hover:bg-sky-50"
         >
-          {link.icon}
-          {link.label}
+          <span className="shrink-0">{link.icon}</span>
+          <span className="min-w-0 truncate">{link.label}</span>
         </a>
       ))}
     </div>

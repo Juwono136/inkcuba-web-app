@@ -22,11 +22,16 @@ function IdentityField({
   value: string;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="min-w-0 space-y-1">
       <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
         {label}
       </p>
-      <p className="text-sm font-medium text-slate-900">{value}</p>
+      <p
+        className="text-sm font-medium break-words text-slate-900 [overflow-wrap:anywhere]"
+        title={value !== "-" ? value : undefined}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -77,7 +82,7 @@ export function AccountIdentitySection({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {fields.map((field) => (
           <IdentityField
             key={field.label}

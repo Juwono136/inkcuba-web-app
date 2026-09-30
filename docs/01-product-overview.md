@@ -21,8 +21,8 @@ Aligned with the PRD (Student, Lecturer, Admin + public visitor):
 | Role | How assigned | Purpose |
 |---|---|---|
 | **STUDENT** | Default for all public self-registration (`@binus.edu` or `@binus.ac.id`) | Student dashboard, My Settings, portfolio submission (planned) |
-| **LECTURER** | Admin User Management (planned) / operator elevation | Review submissions, manage courses/workspaces (planned) |
-| **ADMIN** | Seed script / operator elevation | Platform operations: user management, moderation, audit, reporting |
+| **LECTURER** | Admin User Management / operator elevation | Review submissions, manage courses/workspaces (planned) |
+| **ADMIN** | Seed script / Admin User Management | Platform operations: user management, moderation, audit, reporting |
 
 Public visitors browse without an account.
 
@@ -49,8 +49,9 @@ Public visitors browse without an account.
 | Avatar upload (SeaweedFS) | Done | Upload on form submit only |
 | Media proxy for private storage | Done | `/api/media/[...key]` |
 | Dashboards (student / lecturer / admin) | Shell | Role-gated placeholder workspaces |
-| My Settings page | Done | Identity (RO), photo, public profile, password |
+| My Settings page | Done | Identity (RO), photo, public profile, password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
+| Admin User Management | Done | List/search/filter/sort/paginate; role + active toggles; soft delete (30d) + trash hard delete |
 | Health check API | Done | Basic + detailed (token) |
 | Redis rate limiting | Done | Auth + avatar upload |
 | Email templates | Done | Verification + reset + password-changed |

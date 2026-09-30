@@ -1,16 +1,28 @@
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
+import { redirect } from "next/navigation";
 
-export default function WorkspaceDashboardLayout({
+import { WorkspaceShell } from "@/components/workspace/workspace-shell";
+import { resolveUserRole } from "@/lib/auth/permissions";
+import { getDashboardPath, getSettingsPath } from "@/lib/auth/redirect";
+import { requireAuth } from "@/lib/auth/session";
+import type { WorkspaceRole } from "@/lib/workspace/nav";
+
+export default async function WorkspaceDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await requireAuth();
+  const role = resolveUserRole(session.user);
+
+  if (role === "ADMIN") {
+    redirect(getSettingsPath("ADMIN"));
+  }
+
+  if (role !== "STUDENT" && role !== "LECTURER") {
+    redirect(getDashboardPath(role));
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <SiteHeader />
-      {children}
-      <SiteFooter />
-    </div>
+    <WorkspaceShell role={role as WorkspaceRole}>{children}</WorkspaceShell>
   );
 }

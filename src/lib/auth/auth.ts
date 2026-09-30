@@ -1,12 +1,14 @@
 import "server-only";
 
-import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { betterAuth, APIError, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { getServerEnv } from "@/config/env";
 import { siteConfig } from "@/config/site";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { user as userTable } from "@/db/schema/auth";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/constants";
 import { validateInstitutionalEmail } from "@/lib/auth/permissions";
 import { sendResetPasswordEmail } from "@/lib/email/services/reset-password";
@@ -115,6 +117,57 @@ function createAuthConfig(): BetterAuthOptions {
                 role: "STUDENT",
               },
             };
+          },
+        },
+      },
+      session: {
+        create: {
+          before: async (session) => {
+            const rows = await db
+              .select({
+                isActive: userTable.isActive,
+                deletedAt: userTable.deletedAt,
+              })
+              .from(userTable)
+              .where(
+                and(eq(userTable.id, session.userId), isNull(userTable.deletedAt)),
+              )
+              .limit(1);
+
+            const account = rows[0];
+
+            if (!account) {
+              throw new APIError("FORBIDDEN", {
+                message:
+                  "This account is no longer available. Please contact an administrator.",
+              });
+            }
+
+            if (!account.isActive) {
+              throw new APIError("FORBIDDEN", {
+                message:
+                  "Your account has been deactivated. Please contact an administrator to reactivate it.",
+              });
+            }
+
+            return { data: session };
+          },
+          after: async (session) => {
+            const { recordLoginHistory } = await import(
+              "@/lib/auth/login-history"
+            );
+            await recordLoginHistory({
+              userId: String(session.userId),
+              sessionId: String(session.id),
+              ipAddress:
+                typeof session.ipAddress === "string" ? session.ipAddress : null,
+              userAgent:
+                typeof session.userAgent === "string" ? session.userAgent : null,
+              createdAt:
+                session.createdAt instanceof Date
+                  ? session.createdAt
+                  : undefined,
+            });
           },
         },
       },

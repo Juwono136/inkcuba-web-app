@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { PortfolioSearchDialog } from "@/components/search/portfolio-search-dialog";
+import { ScrollToTop } from "@/components/layout/scroll-to-top";
 import { Toaster } from "@/components/ui/sonner";
 
 const SessionWatcher = dynamic(
@@ -41,6 +42,7 @@ export function AppProviders({ children }: AppProvidersProps) {
       {children}
       <SessionWatcher />
       <PortfolioSearchDialog />
+      <ScrollToTop />
       <Toaster richColors closeButton position="top-center" />
     </QueryClientProvider>
   );

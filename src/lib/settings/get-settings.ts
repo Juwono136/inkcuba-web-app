@@ -37,7 +37,7 @@ export type SettingsPublicProfile = {
   youtubeUrl: string | null;
   twitterUrl: string | null;
   tiktokUrl: string | null;
-  portfolioUrls: string[];
+  portfolioLinks: { label: string; url: string }[];
 };
 
 export type SettingsPayload = {
@@ -124,7 +124,7 @@ function mapStudentPublicProfile(
     youtubeUrl: profile.youtubeUrl,
     twitterUrl: profile.twitterUrl,
     tiktokUrl: profile.tiktokUrl,
-    portfolioUrls: profile.portfolioUrls ?? [],
+    portfolioLinks: profile.portfolioLinks ?? [],
   };
 }
 
@@ -140,7 +140,7 @@ function mapLecturerPublicProfile(
     youtubeUrl: profile.youtubeUrl,
     twitterUrl: profile.twitterUrl,
     tiktokUrl: profile.tiktokUrl,
-    portfolioUrls: profile.portfolioUrls ?? [],
+    portfolioLinks: profile.portfolioLinks ?? [],
   };
 }
 

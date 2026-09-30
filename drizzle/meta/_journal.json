@@ -29,6 +29,27 @@
       "when": 1787307394591,
       "tag": "0003_typical_firestar",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790749463712,
+      "tag": "0004_login_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790754478980,
+      "tag": "0005_brainy_wildside",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790760962123,
+      "tag": "0006_portfolio_links",
+      "breakpoints": true
     }
   ]
 }

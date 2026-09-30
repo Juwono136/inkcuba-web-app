@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import {
+  PROFILE_CUSTOM_LINKS_MAX,
+  PROFILE_CUSTOM_LINK_LABEL_MAX,
+} from "@/lib/settings/profile-links";
+import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   validatePasswordStrength,
@@ -47,6 +51,18 @@ const skillTagSchema = z
     "Skill tags may only include letters, numbers, spaces, and + / # .",
   );
 
+const profileCustomLinkSchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, "Link name is required")
+    .max(
+      PROFILE_CUSTOM_LINK_LABEL_MAX,
+      `Link name must be at most ${PROFILE_CUSTOM_LINK_LABEL_MAX} characters`,
+    ),
+  url: z.string().trim().url("Please enter a valid link URL"),
+});
+
 export const publicProfileSchema = z
   .object({
     bio: z.string().optional(),
@@ -57,9 +73,12 @@ export const publicProfileSchema = z
     youtubeUrl: optionalUrl,
     twitterUrl: optionalUrl,
     tiktokUrl: optionalUrl,
-    portfolioUrls: z
-      .array(z.string().trim().url("Please enter a valid portfolio URL"))
-      .max(2, "You can add at most 2 portfolio links")
+    portfolioLinks: z
+      .array(profileCustomLinkSchema)
+      .max(
+        PROFILE_CUSTOM_LINKS_MAX,
+        `You can add at most ${PROFILE_CUSTOM_LINKS_MAX} custom links`,
+      )
       .optional(),
   })
   .superRefine((data, ctx) => {
@@ -131,6 +150,20 @@ export const publicProfileSchema = z
         path: ["tiktokUrl"],
         message: error instanceof Error ? error.message : "Invalid TikTok URL",
       });
+    }
+
+    const links = data.portfolioLinks ?? [];
+    const seenLabels = new Set<string>();
+    for (let index = 0; index < links.length; index += 1) {
+      const key = links[index].label.trim().toLowerCase();
+      if (seenLabels.has(key)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["portfolioLinks", index, "label"],
+          message: "Link names must be unique",
+        });
+      }
+      seenLabels.add(key);
     }
   });
 

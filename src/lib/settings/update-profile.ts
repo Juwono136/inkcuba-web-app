@@ -10,6 +10,10 @@ import {
 import { ForbiddenError, ValidationError } from "@/lib/api/errors";
 import type { UserRole } from "@/lib/auth/permissions";
 import {
+  finalizeProfileCustomLinks,
+  type ProfileCustomLink,
+} from "@/lib/settings/profile-links";
+import {
   assertBioLength,
   sanitizeBioHtml,
 } from "@/lib/settings/sanitize-bio";
@@ -23,9 +27,11 @@ function normalizeOptionalUrl(value: string | undefined): string | null {
   return value.trim() || null;
 }
 
-function normalizePortfolioUrls(urls: string[] | undefined): string[] | null {
-  if (!urls || urls.length === 0) return null;
-  return urls.map((url) => url.trim()).filter(Boolean);
+function normalizePortfolioLinks(
+  links: ProfileCustomLink[] | undefined,
+): ProfileCustomLink[] | null {
+  const next = finalizeProfileCustomLinks(links ?? []);
+  return next.length > 0 ? next : null;
 }
 
 function normalizeSkills(skills: string[] | undefined): string[] | null {
@@ -77,7 +83,7 @@ export async function updatePublicProfile(input: {
     youtubeUrl: normalizeOptionalUrl(data.youtubeUrl),
     twitterUrl: normalizeOptionalUrl(data.twitterUrl),
     tiktokUrl: normalizeOptionalUrl(data.tiktokUrl),
-    portfolioUrls: normalizePortfolioUrls(data.portfolioUrls),
+    portfolioLinks: normalizePortfolioLinks(data.portfolioLinks),
     updatedAt: new Date(),
   };
 

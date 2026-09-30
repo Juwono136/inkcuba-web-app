@@ -98,7 +98,8 @@ Returns aggregated identity + public profile for the current user. Upserts an em
 ### `PATCH /api/settings/profile`
 
 Updates public profile fields (bio, skills, social URLs, portfolio URLs).  
-Bio HTML is sanitized server-side (allowed: `p`, `br`, `strong`/`b`, `em`/`i`, `ul`/`ol`/`li`, `a` with http(s)/mailto). Plain-text length max **2000**.  
+Bio HTML is sanitized server-side (allowed: `p`, `br`, `strong`/`b`, `em`/`i`, `ul`/`ol`/`li`, `a` with http(s)/mailto). Plain-text length max **8000**.  
+Custom links: up to **4** `{ label, url }` objects (`portfolioLinks`); labels are user-defined (max 40 chars) and unique.  
 **403** for `ADMIN`. Students and lecturers only.
 
 ### `POST /api/settings/avatar`
@@ -112,6 +113,63 @@ Deletes the previous SeaweedFS object (when key-based) and sets a Dicebear defau
 ### `POST /api/settings/password-changed`
 
 Sends the password-changed notification email after a successful Better Auth `changePassword`. Rate limited per user.
+
+### `GET /api/settings/login-history`
+
+Returns paginated login events for the current user from the last **7 days** (`login_history` table).
+
+Query params: `page` (default 1), `pageSize` (default 10, max 50).
+
+Each item includes device/browser/OS labels, IP, timestamps, and flags for **this device** / **active** / **ended**. Rate limited per user.
+
+---
+
+## Admin User Management API (ADMIN only)
+
+All routes require an authenticated session with role `ADMIN`. Responses use the standard envelope. Mutations write `audit_log` entries. Rate limited per admin.
+
+### `GET /api/admin/users`
+
+Paginated user directory.
+
+| Query | Default | Notes |
+|---|---|---|
+| `page` | `1` | |
+| `pageSize` | `20` | Max `100` |
+| `q` | `""` | Debounced search: name, email, campus, NIM, NIDN |
+| `role` | `ALL` | `ALL` \| `STUDENT` \| `LECTURER` \| `ADMIN` |
+| `status` | `ALL` | `ALL` \| `ACTIVE` \| `INACTIVE` (ignored in trash) |
+| `sortBy` | `createdAt` | `name` \| `email` \| `role` \| `createdAt` \| `lastLoginAt` \| `isActive` |
+| `sortDir` | `desc` | `asc` \| `desc` |
+| `trash` | `false` | Soft-deleted users only when `true` |
+
+Also opportunistically hard-deletes soft-deleted users older than **30 days**.
+
+### `GET /api/admin/users/[userId]`
+
+Full read-only detail (identity + profile fields) including trash rows.
+
+### `PATCH /api/admin/users/[userId]`
+
+Body (at least one field required):
+
+```json
+{ "role": "STUDENT|LECTURER|ADMIN", "isActive": true }
+```
+
+Only `role` and `isActive` are mutable. Deactivating revokes all sessions. Guards: cannot change own role / deactivate self; cannot demote or deactivate the last active admin.
+
+### `DELETE /api/admin/users/[userId]`
+
+Soft-delete (sets `deleted_at`, forces inactive, revokes sessions). Idempotent if already in trash.
+
+### `DELETE /api/admin/users/[userId]?hard=true`
+
+Permanent delete — only allowed when the user is already in trash. Cascades related rows and removes SeaweedFS avatar objects when present.
+
+### `POST /api/admin/users/[userId]/restore`
+
+Clears `deleted_at`. Restored accounts remain **inactive** until an admin activates them.
 
 ---
 

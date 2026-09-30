@@ -18,6 +18,8 @@ type AdminShellProps = {
   children: React.ReactNode;
 };
 
+const DESKTOP_MQ = "(min-width: 1024px)";
+
 export function AdminShell({ user, children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -33,6 +35,35 @@ export function AdminShell({ user, children }: AdminShellProps) {
     setHydrated(true);
   }, []);
 
+  useEffect(() => {
+    const media = window.matchMedia(DESKTOP_MQ);
+
+    function onChange(event: MediaQueryListEvent | MediaQueryList) {
+      if (event.matches) setMobileOpen(false);
+    }
+
+    onChange(media);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileOpen(false);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileOpen]);
+
   function handleCollapsedChange(next: boolean) {
     setCollapsed(next);
     try {
@@ -42,19 +73,8 @@ export function AdminShell({ user, children }: AdminShellProps) {
     }
   }
 
-  useEffect(() => {
-    if (!mobileOpen) return;
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMobileOpen(false);
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileOpen]);
-
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#F8FAFC_0%,#F1F5F9_45%,#EEF6FF_100%)]">
+    <div className="min-h-screen bg-inkcuba-dashboard">
       <AdminSidebar
         collapsed={hydrated ? collapsed : false}
         mobileOpen={mobileOpen}

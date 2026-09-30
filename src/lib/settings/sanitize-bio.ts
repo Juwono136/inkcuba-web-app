@@ -2,7 +2,7 @@ import "server-only";
 
 import sanitizeHtml from "sanitize-html";
 
-const BIO_MAX_PLAIN_LENGTH = 2000;
+import { BIO_MAX_PLAIN_LENGTH } from "@/lib/settings/bio-limits";
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -56,4 +56,4 @@ export function assertBioLength(html: string | null): void {
   }
 }
 
-export { BIO_MAX_PLAIN_LENGTH };
+export { BIO_MAX_PLAIN_LENGTH } from "@/lib/settings/bio-limits";

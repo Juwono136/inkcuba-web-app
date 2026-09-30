@@ -21,6 +21,8 @@ export const user = pgTable(
     nidn: text("nidn"),
     campus: text("campus"),
     isActive: boolean("is_active").default(true).notNull(),
+    /** Soft-delete timestamp; null = active row. Purged after retention window. */
+    deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -33,6 +35,8 @@ export const user = pgTable(
     index("user_nim_idx").on(table.nim),
     index("user_nidn_idx").on(table.nidn),
     index("user_campus_idx").on(table.campus),
+    index("user_deleted_at_idx").on(table.deletedAt),
+    index("user_is_active_idx").on(table.isActive),
   ],
 );
 

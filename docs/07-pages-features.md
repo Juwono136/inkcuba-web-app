@@ -53,8 +53,8 @@ Dashboard chrome is **role-aware**:
 
 | Layout | Routes | Chrome |
 |---|---|---|
-| `(workspace)` | `/dashboard/student`, `/lecturer`, `/settings` | Public `SiteHeader` + `SiteFooter` |
-| `admin` | `/dashboard/admin/*` | Dedicated `AdminShell` (collapsible sidebar, admin navbar with breadcrumbs + profile menu, admin footer) — **no** public header/footer |
+| `(workspace)` | `/dashboard/student`, `/lecturer`, `/settings` | Public `SiteHeader` + `SiteFooter` **plus** collapsible workspace sidebar + breadcrumb toolbar (not an admin clone) |
+| `admin` | `/dashboard/admin/*` | Dedicated `AdminShell` (full console chrome with brand-colored sidebar/navbar) |
 
 | Route | Access | Current content |
 |---|---|---|
@@ -62,21 +62,35 @@ Dashboard chrome is **role-aware**:
 | `/dashboard/student` | STUDENT | Welcome shell |
 | `/dashboard/lecturer` | LECTURER | Welcome shell |
 | `/dashboard/admin` | ADMIN | Admin overview console |
+| `/dashboard/admin/users` | ADMIN | User Management (list, detail modal, trash) |
 | `/dashboard/admin/settings` | ADMIN | My Settings inside admin chrome |
 | `/dashboard/settings` | Student / Lecturer | My Settings (admins redirect to `/dashboard/admin/settings`) |
 
 `DashboardShell` / `AdminPageHeader` render page title/description/content only.
 
+### Student / Lecturer workspace UX
+
+- Keeps the public marketing chrome (`SiteHeader` / `SiteFooter`) — intentionally **different** from the admin console
+- Desktop: sticky sidebar (`top` below SiteHeader) so Navigate + Account stay visible while scrolling long pages; Account (My Settings) sits directly under Navigate
+- Mobile: solid overlay drawer; main column always full width
+- Toggle via toolbar icon; desktop preference in `inkcuba.workspace-sidebar-open`
+
 ### Admin console UX
 
-- Collapsible sidebar with a mid-edge chevron toggle that appears on hover (desktop); state persisted in `localStorage`
-- No horizontal overflow when collapsed (icon-only rail + `title` tooltips)
-- Brand wordmark always visible in the mobile drawer
-- Primary modules at the top; **My Settings** pinned at the bottom under Account
-- Admin navbar: breadcrumbs, **Public site** button, profile menu
-- Compact admin footer (no decorative middle-dot separators)
-- Mobile drawer overlay + Escape to close
-- Upcoming modules shown as placeholders (User Management, Portfolios, Audit)
+- Full dedicated console (no public header/footer)
+- Brand-colored gradient header strip + solid white sidebar (no translucent mobile drawer)
+- Desktop: collapsible rail with hover-edge toggle; My Settings pinned under Account
+- Mobile/tablet: opaque slide-over drawer with clear labels + dimmed backdrop; body scroll locked while open
+- Navbar breadcrumbs + **Public site** + profile menu
+
+### Admin User Management (`/dashboard/admin/users`)
+
+- Paginated directory of all roles (Student, Lecturer, Admin) with last-login column
+- Debounced search (name, email, campus, NIM/NIDN), role/status filters, sortable columns
+- Detail modal (read-only identity + public profile fields); editable **role** and **active/inactive** only
+- Soft delete → Trash (30-day retention) with restore / permanent remove; hard delete also clears SeaweedFS avatars
+- Confirm dialogs for save, soft delete, restore, and hard delete
+- APIs under `/api/admin/users/*` (ADMIN-only, rate limited, audit logged)
 
 ---
 
@@ -111,10 +125,11 @@ Shared settings logic (`src/components/settings/`):
 |---|---|---|
 | Account Identity | All | Read-only institutional fields; empty values render as `-` |
 | Profile Photo | All | Upload/replace/remove with confirm modals (5MB; HEIC→JPEG); updates `user.image`; previous SeaweedFS object deleted; navbar avatar syncs immediately |
-| Public Profile | Student + Lecturer | Editable bio (TipTap: bold/italic/lists/links), skills, social + portfolio URLs with brand icons; confirm before save / remove |
+| Public Profile | Student + Lecturer | Editable bio (TipTap, plain text max **8000**), skills, social URLs, up to **4** custom-named links; confirm before save / remove |
 | Security | All | Password fields with placeholders, show/hide toggles, live strength checklist, confirm modal + notification email; validation toasts show the specific field message |
+| Login History | All | Last **7 days** of sign-ins beside Security on large screens; friendly location labels (no raw IPv6 blobs); paginated |
 
-Admins skip Public Profile. Major/batch/campus/BINUSIAN ID and related identity fields are admin-managed later (not editable here).
+Admins skip Public Profile. Major/batch/campus/BINUSIAN ID remain read-only on My Settings; admins change **role** and **active** status from User Management (not identity fields).
 
 ---
 
@@ -128,7 +143,12 @@ Admins skip Public Profile. Major/batch/campus/BINUSIAN ID and related identity 
 | `SocialBrandIcons` + `SocialLinksPreview` | LinkedIn / GitHub / Instagram / YouTube / X / TikTok brand marks in settings preview |
 | `AdminShell` / `AdminSidebar` / `AdminNavbar` | Dedicated admin console chrome |
 | `AdminBreadcrumb` | Path breadcrumbs in admin navbar |
+| `UsersPageClient` / `UserDetailDialog` | Admin User Management table + detail/edit modal |
 | `ConfirmDialog` | Reusable confirmation modal |
+| `ScrollToTop` | Global FAB (mounted in `AppProviders` for all pages) |
+| `WorkspaceShell` / `WorkspaceSidebar` / `WorkspaceToolbar` | Student/lecturer: public header/footer + collapsible sidebar + breadcrumbs |
+| `AppBreadcrumb` | Shared breadcrumb for admin + workspace navbars |
+| `LoginHistorySection` | Paginated 7-day login history on My Settings |
 | `UserAvatar` | Resolves storage/Dicebear/fallback initials |
 | `PasswordInput` | Show/hide password |
 | `PasswordRequirements` | Live password rule checklist |
@@ -137,7 +157,6 @@ Admins skip Public Profile. Major/batch/campus/BINUSIAN ID and related identity 
 | `RichTextEditor` | TipTap bio editor (StarterKit with `link: false` + single Link extension; toolbar keeps selection; link dialog) |
 | `AuthShell` | Shared auth layout |
 | `InkcubaLoader` | Branded loading state |
-| `ScrollToTop` | Homepage convenience control |
 | `PortfolioSearchDialog` | Global search modal |
 
 ---
@@ -158,9 +177,8 @@ These power the public exhibition experience until live portfolio APIs are conne
 
 1. Portfolio submission workspace for students  
 2. Lecturer review / publish workflow  
-3. Admin User Management (edit locked identity fields)  
-4. Real explore filters backed by DB  
-5. Audit trail visibility for admins  
+3. Real explore filters backed by DB  
+4. Audit trail visibility UI for admins (writes already exist from User Management)
 
 See [01 — Product Overview](./01-product-overview.md) status matrix.
 

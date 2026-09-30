@@ -52,10 +52,13 @@ Defined in `src/db/schema/enums.ts`:
 | `nim` | text nullable | Student BINUSIAN ID |
 | `nidn` | text nullable | Lecturer ID |
 | `campus` | text nullable | Campus name |
-| `is_active` | boolean | Default true |
+| `is_active` | boolean | Default true; inactive users cannot create sessions |
+| `deleted_at` | timestamp nullable | Soft-delete marker; null = not in trash. Auto-purged after **30 days** |
 | `created_at` / `updated_at` | timestamp | Audit timestamps |
 
-Indexes: email, role, nim, nidn, campus.
+Indexes: email, role, nim, nidn, campus, `is_active`, `deleted_at`.
+
+Soft-deleted users remain in the table (email unique still held) until restore or hard delete. Hard delete cascades sessions/accounts/profiles/login history and removes SeaweedFS avatar objects when present.
 
 ### `session`
 
@@ -69,6 +72,20 @@ Credential/account linking table (email-password provider stores password hash h
 
 Email verification and password-reset tokens.
 
+### `login_history` (`src/db/schema/login-history.ts`)
+
+Durable sign-in events for **My Settings → Login History** (last **7 days**).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | text PK | UUID |
+| `user_id` | text FK → user | Cascade delete |
+| `session_id` | text nullable | Links to Better Auth session when still known |
+| `ip_address` / `user_agent` | text nullable | Captured at sign-in |
+| `created_at` | timestamp | When the login happened |
+
+Written from Better Auth `databaseHooks.session.create.after`. Rows older than 7 days are pruned on read. Migration: `0004_login_history.sql`.
+
 ---
 
 ## Profile tables (`src/db/schema/profiles.ts`)
@@ -77,13 +94,13 @@ Email verification and password-reset tokens.
 
 `bio`, `major`, `batch`, `semester`, `is_alumni`, `skills[]`,
 `linkedin_url`, `github_url`, `instagram_url`, `youtube_url`, `twitter_url`,
-`tiktok_url`, `portfolio_urls[]`
+`tiktok_url`, `portfolio_links` (jsonb array of `{ label, url }`, max 4)
 
 ### `lecturer_profile`
 
 `bio`, `major`, `department`, `title`, `skills[]`,
 `linkedin_url`, `github_url`, `instagram_url`, `youtube_url`, `twitter_url`,
-`tiktok_url`, `portfolio_urls[]`
+`tiktok_url`, `portfolio_links` (jsonb array of `{ label, url }`, max 4)
 
 Both reference `user.id` with cascade delete.
 

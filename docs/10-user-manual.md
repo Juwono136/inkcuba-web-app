@@ -123,21 +123,39 @@ For lecturer accounts. Currently shows a review-workspace shell for upcoming cou
 
 Dedicated administration console (not the public site header/footer):
 
-- Collapsible sidebar: mid-edge toggle appears on hover (desktop); brand name shown in the mobile drawer
-- Primary modules (Overview + upcoming tools) at the top; **My Settings** at the bottom
-- Admin navbar with breadcrumbs, **Public site** shortcut, and profile menu
-- Compact admin footer
-- Settings live at `/dashboard/admin/settings`
+### Student / Lecturer dashboard
+
+- Public site header/footer (same family as the marketing site)
+- Workspace menu: use the panel icon beside breadcrumbs to show/hide. On phones it opens as a solid drawer; on desktop it stays sticky beside the page (My Settings sits under Navigate, always easy to reach).
+- Brand-colored welcome cards (cyan / purple / orange accents from the inkcuba logo)
+- Settings at `/dashboard/settings`
+
+### Admin console
+
+- Dedicated admin chrome (not the public header)
+- Brand-colored overview + collapsible sidebar
+- **User Management** at `/dashboard/admin/users` — search, filter, sort, paginate all accounts; open details to change role / active status; move users to trash (30 days) or permanently remove
+- Settings at `/dashboard/admin/settings`
+
+#### User Management tips
+
+1. Open a user with **Details** to see full read-only profile info.
+2. Change **Role** or **Account status**, then confirm **Save changes**.
+3. Inactive users cannot sign in until an admin reactivates them.
+4. **Move to trash** soft-deletes for 30 days; use **Open trash** to restore or permanently remove (also deletes stored profile photos from object storage).
+5. You cannot deactivate or delete your own admin account, or remove the last active administrator.
 
 ### My Settings
 
 **Students / Lecturers** — `/dashboard/settings`  
 **Admins** — `/dashboard/admin/settings` (same features, admin console chrome)
 
-1. **Account Identity** — view-only name, email, role, campus, BINUSIAN ID, and role-specific academic fields. Empty values show as `-`.
-2. **Profile Photo** — change or remove your photo (JPG/PNG/WebP/HEIC up to 5MB). Replacing or removing asks for confirmation and updates SeaweedFS (old object deleted; no orphans). The header/admin navbar avatar updates immediately.
-3. **Public Profile** (students & lecturers) — edit bio (bold, italic, lists, links), skills, and social/portfolio links (preview uses real brand icons). Saving, removing a skill, or removing a filled portfolio link asks for confirmation.
-4. **Security** — change password with placeholders, show/hide toggles, and a confirm modal. Validation messages name the issue clearly (e.g. passwords don’t match). Other sessions are signed out and a confirmation email is sent.
+1. **Account Identity** — view-only institutional fields (paired with Profile Photo on large screens).
+2. **Profile Photo** — change/remove with confirmations; SeaweedFS stays in sync.
+3. **Public Profile** (students & lecturers) — bio (up to 8,000 characters), skills, social links, and up to 4 custom-named links (label + URL).
+4. **Security** + **Login History** — shown **side by side** on large screens so you do not scroll past empty space. Login history covers the last 7 days with plain-language locations (e.g. “Private network”, “This computer”) instead of raw IP strings.
+
+A **Scroll to top** button appears on every page after you scroll down (~400px).
 
 ---
 

@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "@/db/schema/auth";
 
@@ -22,7 +22,10 @@ export const studentProfile = pgTable(
     youtubeUrl: text("youtube_url"),
     twitterUrl: text("twitter_url"),
     tiktokUrl: text("tiktok_url"),
-    portfolioUrls: text("portfolio_urls").array(),
+    /** Custom named links (max 4) — replaces legacy portfolio_urls text[]. */
+    portfolioLinks: jsonb("portfolio_links").$type<
+      { label: string; url: string }[]
+    >(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -55,7 +58,10 @@ export const lecturerProfile = pgTable(
     youtubeUrl: text("youtube_url"),
     twitterUrl: text("twitter_url"),
     tiktokUrl: text("tiktok_url"),
-    portfolioUrls: text("portfolio_urls").array(),
+    /** Custom named links (max 4) — replaces legacy portfolio_urls text[]. */
+    portfolioLinks: jsonb("portfolio_links").$type<
+      { label: string; url: string }[]
+    >(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

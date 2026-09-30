@@ -27,7 +27,7 @@ export function AdminNavbar({ user, onOpenMobileSidebar }: AdminNavbarProps) {
   const liveUser = useLiveSessionUser(user);
 
   return (
-    <header className="sticky top-0 z-30 border-b-2 border-slate-900 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b-2 border-inkcuba-navy bg-white">
       <div className="flex h-16 items-center gap-2 px-3 sm:gap-3 sm:px-6">
         <AdminMobileMenuButton onClick={onOpenMobileSidebar} />
 
@@ -43,7 +43,7 @@ export function AdminNavbar({ user, onOpenMobileSidebar }: AdminNavbarProps) {
             asChild
             variant="outline"
             size="sm"
-            className="border-slate-900 bg-white shadow-none hover:bg-sky-50"
+            className="border-inkcuba-navy bg-gradient-to-r from-sky-50 to-violet-50 shadow-none hover:from-amber-50 hover:to-orange-50"
           >
             <Link href="/" className="gap-1.5">
               <ExternalLink className="h-3.5 w-3.5" />

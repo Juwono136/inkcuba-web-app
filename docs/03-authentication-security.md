@@ -132,6 +132,28 @@ If checkbox is unchecked on successful login, remembered credentials are cleared
 4. On success: `POST /api/settings/password-changed` sends a notification email; remembered device credentials for that email are cleared.
 5. Invalid current password surfaces as a field/toast error.
 
+### Login history (My Settings)
+
+1. Each new Better Auth session is recorded in `login_history` (IP + user agent).
+2. Users view the last **7 days** on My Settings (`GET /api/settings/login-history`).
+3. UI highlights **This device**, **Active**, and **Ended** sessions; paginated for large lists.
+4. Location is shown as plain language (`Private network`, `This computer`, …) — raw IPv6 blobs are never shown.
+5. On large screens, Login History sits **beside** Security (not buried at the bottom).
+6. Older rows are pruned on read (retention = 7 days).
+
+---
+
+## Account activation & soft delete
+
+| Field | Behavior |
+|---|---|
+| `user.is_active` | Must be `true` to create a new session. Deactivation revokes all sessions immediately. |
+| `user.deleted_at` | Soft-deleted accounts cannot sign in. Kept for **30 days**, then hard-deleted (opportunistic prune on admin user list). |
+
+Enforced in Better Auth `databaseHooks.session.create.before`. Inactive/deleted users see a clear contact-admin message.
+
+Admins manage activation, roles, soft delete, restore, and permanent remove via **User Management** (`/dashboard/admin/users`). Admins cannot deactivate/delete themselves or demote/delete the last active administrator.
+
 ---
 
 ## Session management

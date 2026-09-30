@@ -4,3 +4,4 @@ export * from "@/db/schema/profiles";
 export * from "@/db/schema/workspaces";
 export * from "@/db/schema/portfolios";
 export * from "@/db/schema/audit";
+export * from "@/db/schema/login-history";

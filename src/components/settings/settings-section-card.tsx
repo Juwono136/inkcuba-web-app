@@ -25,15 +25,17 @@ export function SettingsSectionCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" }}
       className={cn(
-        "rounded-2xl border-2 border-slate-900 bg-white p-5 shadow-inkcuba sm:p-6",
+        "min-w-0 overflow-hidden rounded-2xl border-2 border-inkcuba-navy bg-white p-5 shadow-inkcuba sm:p-6",
         className,
       )}
     >
-      <div className="mb-5 space-y-1">
-        <h2 className="font-heading text-xl font-bold text-slate-900">{title}</h2>
-        <p className="text-sm text-slate-600">{description}</p>
+      <div className="mb-5 min-w-0 space-y-1">
+        <h2 className="font-heading text-xl font-bold break-words text-slate-900">
+          {title}
+        </h2>
+        <p className="text-sm break-words text-slate-600">{description}</p>
       </div>
-      {children}
+      <div className="min-w-0">{children}</div>
     </motion.section>
   );
 }

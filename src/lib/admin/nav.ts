@@ -21,8 +21,6 @@ export const ADMIN_PRIMARY_NAV_ITEMS: AdminNavItem[] = [
     href: "/dashboard/admin/users",
     label: "User Management",
     icon: "users",
-    disabled: true,
-    badge: "Soon",
   },
   {
     href: "/dashboard/admin/portfolios",

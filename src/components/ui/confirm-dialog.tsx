@@ -48,6 +48,8 @@ export function ConfirmDialog({
     try {
       await onConfirm();
       onOpenChange(false);
+    } catch {
+      // Caller already surfaces the error (toast). Keep dialog open; never rethrow.
     } finally {
       setIsSubmitting(false);
     }
