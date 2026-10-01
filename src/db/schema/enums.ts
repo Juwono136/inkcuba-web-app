@@ -39,3 +39,16 @@ export const directoryOptionCategoryEnum = pgEnum("directory_option_category", [
   "semester",
   "department",
 ]);
+
+/** Identity fields that can be toggled as self-editable per role in My Settings. */
+export const settingsIdentityFieldEnum = pgEnum("settings_identity_field", [
+  "name",
+  "title",
+  "campus",
+  "nim",
+  "nidn",
+  "major",
+  "batch",
+  "semester",
+  "department",
+]);

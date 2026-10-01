@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { directoryOption } from "@/db/schema/directory";
@@ -120,6 +120,54 @@ export async function getActiveDirectoryValues(
 ): Promise<string[]> {
   const rows = await listDirectoryOptions({ category, activeOnly: true });
   return rows.map((row) => row.value);
+}
+
+/**
+ * Resolve stored directory `value` keys to their current display `label`s.
+ * Includes inactive options so renamed labels still sync across My Settings /
+ * User Management without rewriting profile rows. Falls back to the raw value
+ * when no matching option exists (orphan / legacy data).
+ */
+export async function resolveDirectoryLabels(
+  pairs: Array<{
+    category: DirectoryOptionCategory;
+    value: string | null | undefined;
+  }>,
+): Promise<Record<DirectoryOptionCategory, string | null>> {
+  const result: Record<DirectoryOptionCategory, string | null> = {
+    campus: null,
+    major: null,
+    batch: null,
+    semester: null,
+    department: null,
+  };
+
+  const needed = pairs.filter(
+    (pair) => pair.value != null && pair.value.trim() !== "",
+  );
+  if (needed.length === 0) return result;
+
+  const categories = [...new Set(needed.map((pair) => pair.category))];
+  const rows = await db
+    .select({
+      category: directoryOption.category,
+      value: directoryOption.value,
+      label: directoryOption.label,
+    })
+    .from(directoryOption)
+    .where(inArray(directoryOption.category, categories));
+
+  const byKey = new Map(
+    rows.map((row) => [`${row.category}:${row.value}`, row.label] as const),
+  );
+
+  for (const pair of needed) {
+    const trimmed = pair.value!.trim();
+    result[pair.category] =
+      byKey.get(`${pair.category}:${trimmed}`) ?? trimmed;
+  }
+
+  return result;
 }
 
 export async function assertDirectoryValue(

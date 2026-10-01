@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   FolderKanban,
+  ListTree,
   Settings,
   Shield,
   Sparkles,
@@ -21,11 +22,31 @@ const modules = [
   {
     title: "User Management",
     description:
-      "Review accounts, roles, and identity fields. Campus, major, and related selects use Directory Options.",
+      "Review accounts, roles, identity, and profile photos. Campus, major, and related selects use Directory Options.",
     href: "/dashboard/admin/users",
     icon: Users,
     cardClass: "from-sky-50 to-white",
     iconClass: "bg-sky-100 text-inkcuba-cyan",
+    available: true,
+  },
+  {
+    title: "Directory Options",
+    description:
+      "Maintain campus, major, batch, semester, and department values used across forms.",
+    href: "/dashboard/admin/directory",
+    icon: ListTree,
+    cardClass: "from-emerald-50 to-white",
+    iconClass: "bg-emerald-100 text-emerald-700",
+    available: true,
+  },
+  {
+    title: "Field Permissions",
+    description:
+      "Choose which My Settings identity fields each role can edit themselves.",
+    href: "/dashboard/admin/field-permissions",
+    icon: Shield,
+    cardClass: "from-indigo-50 to-white",
+    iconClass: "bg-indigo-100 text-indigo-700",
     available: true,
   },
   {

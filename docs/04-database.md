@@ -111,12 +111,26 @@ Admin-managed selectable values for identity forms.
 | Column | Notes |
 |---|---|
 | `category` | enum: `campus`, `major`, `batch`, `semester`, `department` |
-| `label` | Display name shown in admin + selects |
-| `value` | Stored key used on profiles (unique per category). Set from label on create; not editable afterward |
+| `label` | Display name shown in Directory Options, selects, My Settings, and User Management |
+| `value` | Immutable key stored on `user.campus` / profile directory fields (unique per category). Copied from the label at create time; never rewritten when the label changes |
 | `sort_order` / `is_active` | Display order (managed via drag-and-drop reorder API) + soft disable without deleting |
 
+**Display sync:** My Settings and User Management detail responses include `directoryLabels` resolved from the current `label` for each stored `value` (including inactive options). Renaming a Directory Options label therefore updates what users see without migrating profile rows. Orphan values (option deleted) fall back to showing the raw stored key.
+
+### `role_field_permission`
+
+Per-role toggles for which identity fields users may edit on My Settings.
+
+| Column | Notes |
+|---|---|
+| `role` | `STUDENT` / `LECTURER` / `ADMIN` |
+| `field` | enum: `name`, `title`, `campus`, `nim`, `nidn`, `major`, `batch`, `semester`, `department` |
+| `editable_by_self` | When true, that role may PATCH the field via `/api/settings/identity` |
+
+Unique on `(role, field)`. Seeded with product defaults on first read.
+
 Public-profile fields are editable in **My Settings** for students/lecturers.
-Identity fields (campus/major/IDs/etc.) are admin-managed; lecturers may edit **name** + **title** only.
+Identity self-edit is gated by Field Permissions; admins can always edit all identity fields (and avatars) in User Management. ADMIN title/major/department are stored on `lecturer_profile` so admin edits stay in sync with My Settings.
 
 ---
 

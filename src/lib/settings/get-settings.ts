@@ -11,6 +11,16 @@ import {
 import { resolveUserRole, type UserRole } from "@/lib/auth/permissions";
 import { formatUserRole } from "@/lib/auth/role-labels";
 import { AppError, NotFoundError } from "@/lib/api/errors";
+import { resolveDirectoryLabels } from "@/lib/directory/service";
+import type { DirectoryOptionCategory } from "@/lib/directory/types";
+import { getEditableFieldsForRole } from "@/lib/role-field-permissions/service";
+import type { SettingsIdentityField } from "@/lib/role-field-permissions/types";
+
+/** Current display labels for directory-backed identity fields (value keys stay on the base fields). */
+export type SettingsDirectoryLabels = Record<
+  DirectoryOptionCategory,
+  string | null
+>;
 
 export type SettingsIdentity = {
   name: string;
@@ -28,7 +38,17 @@ export type SettingsIdentity = {
   alumniLabel: string | null;
   department: string | null;
   title: string | null;
-  /** Lecturers may edit name + title from My Settings. */
+  /**
+   * Resolved Directory Options labels for campus/major/batch/semester/department.
+   * Profiles store immutable `value` keys; labels can change without rewriting profiles.
+   */
+  directoryLabels: SettingsDirectoryLabels;
+  /**
+   * Fields the signed-in user may edit in My Settings (from role_field_permission).
+   * Empty array = fully read-only identity section.
+   */
+  editableFields: SettingsIdentityField[];
+  /** True when name and/or title are self-editable. */
   canEditNameAndTitle: boolean;
 };
 
@@ -197,9 +217,29 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
     department = emptyOrNull(profile.department);
     title = emptyOrNull(profile.title);
     publicProfile = mapLecturerPublicProfile(profile);
+  } else if (role === "ADMIN") {
+    binusianId = emptyOrNull(dbUser.nim) ?? emptyOrNull(dbUser.nidn);
+    // Title / major / department for admins live on lecturer_profile (shared with admin patch).
+    const profile = await ensureLecturerProfile(userId);
+    major = emptyOrNull(profile.major);
+    department = emptyOrNull(profile.department);
+    title = emptyOrNull(profile.title);
   } else {
     binusianId = emptyOrNull(dbUser.nim) ?? emptyOrNull(dbUser.nidn);
   }
+
+  const editableFields = await getEditableFieldsForRole(role);
+  const canEditNameAndTitle =
+    editableFields.includes("name") || editableFields.includes("title");
+
+  const campus = emptyOrNull(dbUser.campus);
+  const directoryLabels = await resolveDirectoryLabels([
+    { category: "campus", value: campus },
+    { category: "major", value: major },
+    { category: "batch", value: batch },
+    { category: "semester", value: semester },
+    { category: "department", value: department },
+  ]);
 
   return {
     identity: {
@@ -207,7 +247,7 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
       email: dbUser.email,
       role,
       roleLabel: formatUserRole(role),
-      campus: emptyOrNull(dbUser.campus),
+      campus,
       binusianId,
       nim: emptyOrNull(dbUser.nim),
       nidn: emptyOrNull(dbUser.nidn),
@@ -218,7 +258,9 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
       alumniLabel,
       department,
       title,
-      canEditNameAndTitle: role === "LECTURER",
+      directoryLabels,
+      editableFields,
+      canEditNameAndTitle,
     },
     image: dbUser.image,
     canEditPublicProfile,

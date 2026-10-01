@@ -10,6 +10,7 @@ import {
   ListTree,
   Menu,
   Settings,
+  Shield,
   Users,
   X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const ICONS = {
   settings: Settings,
   users: Users,
   directory: ListTree,
+  permissions: Shield,
   portfolios: FolderKanban,
   audit: ClipboardList,
 } as const;

@@ -9,7 +9,8 @@ export type AdminNavItem = {
     | "users"
     | "portfolios"
     | "audit"
-    | "directory";
+    | "directory"
+    | "permissions";
   exact?: boolean;
   disabled?: boolean;
   badge?: string;
@@ -32,6 +33,11 @@ export const ADMIN_PRIMARY_NAV_ITEMS: AdminNavItem[] = [
     href: "/dashboard/admin/directory",
     label: "Directory Options",
     icon: "directory",
+  },
+  {
+    href: "/dashboard/admin/field-permissions",
+    label: "Field Permissions",
+    icon: "permissions",
   },
   {
     href: "/dashboard/admin/portfolios",
@@ -91,6 +97,11 @@ export function getAdminBreadcrumbs(pathname: string): AdminBreadcrumbItem[] {
 
   if (pathname.startsWith("/dashboard/admin/directory")) {
     crumbs.push({ label: "Directory Options" });
+    return crumbs;
+  }
+
+  if (pathname.startsWith("/dashboard/admin/field-permissions")) {
+    crumbs.push({ label: "Field Permissions" });
     return crumbs;
   }
 

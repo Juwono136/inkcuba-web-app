@@ -232,7 +232,11 @@ function OptionFormDialog({
       toast.error("Label is required");
       return;
     }
-    await onSubmit({ ...form, label });
+    try {
+      await onSubmit({ ...form, label });
+    } catch {
+      // Mutation onError already shows a toast; swallow to avoid Next.js overlay.
+    }
   }
 
   return (

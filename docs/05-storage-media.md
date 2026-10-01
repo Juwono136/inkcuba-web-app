@@ -101,6 +101,10 @@ Authenticated users can replace or remove their profile photo from My Settings.
 | UI | My Settings asks for confirmation before replace (existing custom photo) and before remove; navbar avatar syncs via optimistic event + `getSession({ disableCookieCache: true })` + `router.refresh()` |
 | Rate limit | 10 / 15 minutes / user |
 
+## Admin user avatar (`POST|DELETE /api/admin/users/[userId]/avatar`)
+
+Admins can replace/remove another user’s photo from User Management details. Same SeaweedFS rules as settings avatar (upload → DB update → delete previous key; remove → Dicebear → delete key). Audited as `user.avatar_update` / `user.avatar_delete`. Rate limited per admin actor.
+
 Registration avatar upload (`/api/auth/avatar`) remains **2 MB**, JPG/PNG/WebP only.
 
 ---

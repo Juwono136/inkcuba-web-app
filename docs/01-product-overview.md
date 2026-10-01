@@ -53,6 +53,8 @@ Public visitors browse without an account.
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
 | Admin User Management | Done | List/search/filter; edit role, activation, identity; soft delete + trash; audit writes |
 | Admin Directory Options | Done | CRUD + drag-reorder, search/pagination for campus/major/batch/semester/department selects |
+| Admin Field Permissions | Done | Per-role My Settings identity edit matrix |
+| Admin user avatars | Done | Upload/replace/remove from User Management with SeaweedFS sync |
 | Health check API | Done | Basic + detailed (token) |
 | Redis rate limiting | Done | Auth + avatar upload |
 | Email templates | Done | Verification + reset + password-changed |

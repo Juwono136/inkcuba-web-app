@@ -57,6 +57,13 @@
       "when": 1790767143743,
       "tag": "0007_directory_options",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790850000000,
+      "tag": "0008_role_field_permissions",
+      "breakpoints": true
     }
   ]
 }

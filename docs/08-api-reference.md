@@ -95,6 +95,8 @@ Deletes an uploaded registration avatar key under `avatars/register/` only.
 
 Returns aggregated identity + public profile for the current user. Upserts an empty student/lecturer profile row on read when missing.
 
+Identity includes stored directory **values** (`campus`, `major`, `batch`, `semester`, `department`) plus `directoryLabels` — the current Directory Options **labels** for those values (inactive options included). Clients should display `directoryLabels.*` and keep submitting the stored values when editing.
+
 ### `PATCH /api/settings/profile`
 
 Updates public profile fields (bio, skills, social URLs, portfolio links).  
@@ -104,7 +106,7 @@ Custom links: up to **4** `{ label, url }` objects (`portfolioLinks`); labels ar
 
 ### `PATCH /api/settings/identity`
 
-Lecturers only. Updates **name** and optional **title**. Audited as `user.self_update_identity`.
+Any authenticated role. Updates only fields allowed by **Field Permissions** for that role (defaults: lecturers/admins → name + title). Directory-backed fields are validated against active options. Audited as `user.self_update_identity`.
 
 ### `POST /api/settings/avatar`
 
@@ -113,6 +115,22 @@ Lecturers only. Updates **name** and optional **title**. Audited as `user.self_u
 ### `DELETE /api/settings/avatar`
 
 Deletes the previous SeaweedFS object (when key-based) and sets a Dicebear default image URL on `user.image`.
+
+### `POST /api/admin/users/[userId]/avatar` (ADMIN)
+
+Same SeaweedFS replace semantics as settings avatar, for a target user. Audited as `user.avatar_update`.
+
+### `DELETE /api/admin/users/[userId]/avatar` (ADMIN)
+
+Removes target user photo from storage and sets Dicebear default. Idempotent. Audited as `user.avatar_delete`.
+
+### `GET /api/admin/role-field-permissions` (ADMIN)
+
+Returns permission matrix + field metadata for the Field Permissions admin UI.
+
+### `PUT /api/admin/role-field-permissions` (ADMIN)
+
+Bulk upsert `{ items: [{ role, field, editableBySelf }] }`. Audited as `role_field_permission.update`.
 
 ### `POST /api/settings/password-changed`
 
@@ -151,7 +169,7 @@ Also opportunistically hard-deletes soft-deleted users older than **30 days**.
 
 ### `GET /api/admin/users/[userId]`
 
-Full read-only detail (identity + profile fields) including trash rows.
+Full detail (identity + profile fields) including trash rows. Includes `directoryLabels` (current Directory Options labels for stored campus/major/batch/semester/department values) so admin UI stays in sync after label renames.
 
 ### `PATCH /api/admin/users/[userId]`
 

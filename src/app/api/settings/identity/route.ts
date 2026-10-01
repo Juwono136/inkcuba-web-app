@@ -4,17 +4,11 @@ import { ValidationError } from "@/lib/api/errors";
 import { apiSuccess, handleApiError } from "@/lib/api/response";
 import { rateLimit } from "@/lib/redis";
 import { requireApiSession } from "@/lib/settings/require-api-session";
-import { updateLecturerIdentity } from "@/lib/settings/update-identity";
+import { updateSelfIdentity } from "@/lib/settings/update-identity";
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { session, role } = await requireApiSession();
-
-    if (role !== "LECTURER") {
-      throw new ValidationError(
-        "Only lecturers can update name and title from My Settings",
-      );
-    }
+    const { session } = await requireApiSession();
 
     const limit = await rateLimit(
       `settings-identity:${session.user.id}`,
@@ -28,7 +22,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    const settings = await updateLecturerIdentity({
+    const settings = await updateSelfIdentity({
       userId: session.user.id,
       data: body,
       ipAddress:

@@ -88,7 +88,7 @@ Dashboard chrome is **role-aware**:
 
 - Paginated directory of all roles (Student, Lecturer, Admin) with last-login column
 - Debounced search (name, email, campus, NIM/NIDN), role/status filters, sortable columns
-- Detail modal: edit **role**, **active/inactive**, and institutional identity (name, campus, NIM, NIDN, major, batch, semester, department, title)
+- Detail modal: edit **role**, **active/inactive**, and institutional identity. ID fields are role-scoped: **Student** → BINUSIAN ID / NIM; **Lecturer** → BINUSIAN ID + NIDN; **Admin** → BINUSIAN ID only. Also campus, major, batch, semester, department, title.
 - Campus / major / batch / semester / department use **Directory Options** selects
 - Soft delete → Trash (30-day retention) with restore / permanent remove; hard delete also clears SeaweedFS avatars
 - Confirm dialogs for save, soft delete, restore, and hard delete
@@ -99,12 +99,34 @@ Dashboard chrome is **role-aware**:
 
 - CRUD for selectable institutional values: campus, major, batch, semester, department
 - **Label-only** create/edit forms — stored `value` is system-generated from the label at create time and stays immutable (so profile references remain stable)
+- Renaming a **label** updates display everywhere via server-side `value → label` resolution (`directoryLabels` on settings + admin user detail); profiles keep the same `value` key
 - **Drag-and-drop** reorder via grip handles (Framer Motion); sort order is not shown as a numeric field; drag is disabled while a search filter is active
 - Debounced search (label/value), pagination (10/20/50), responsive card layout on small screens and compact rows on tablet/desktop
 - Active options drive User Management selects and public `GET /api/directory-options`
 - Default campuses are seeded automatically when the campus category is empty
 - Mutations audited as `directory_option.create|update|delete|reorder`
 
+### Admin Field Permissions (`/dashboard/admin/field-permissions`)
+
+- Matrix of which **My Settings** identity fields each role may self-edit (`name`, `title`, `campus`, `nim`, `nidn`, `major`, `batch`, `semester`, `department`)
+- Defaults: students read-only; lecturers & admins can edit **name** + **title**
+- Irrelevant fields per role show as N/A (e.g. NIDN for students)
+- Changes are audited as `role_field_permission.update` and enforced by `PATCH /api/settings/identity`
+
+### Admin User Management extras
+
+- User detail dialog can **upload / remove** profile photos (SeaweedFS; previous object deleted on replace/remove)
+- ADMIN identity extras (**title**, major, department) persist on `lecturer_profile` so My Settings stays in sync with User Management
+- Directory-backed identity fields share one source of truth: Directory Options → stored values on user/profile → resolved labels on My Settings / User Management / future consumers
+
+### Identity sync model (cross-page)
+
+| Surface | Writes | Reads / display |
+|---|---|---|
+| Directory Options | label, active, order | Admin table shows current labels |
+| User Management | stores directory `value` keys (+ IDs, role, avatar) | Detail uses `directoryLabels` for read-only views; selects show current labels |
+| Field Permissions | which fields My Settings may edit | Enforced on `PATCH /api/settings/identity` |
+| My Settings (all roles) | allowed identity fields + avatar + public profile | Identity card shows `directoryLabels`; form selects bind to stored values |
 ---
 
 ## Navigation when authenticated
@@ -136,13 +158,13 @@ Shared settings logic (`src/components/settings/`):
 
 | Section | Roles | Behavior |
 |---|---|---|
-| Account Identity | All | Students: full institutional fields (read-only). Lecturers: same display; **name** + **title** editable with confirm modal |
+| Account Identity | All | Fields shown by role. Self-editability is configured in **Field Permissions** (defaults: students RO; lecturers/admins may edit name + title). Confirm modal on save |
 | Profile Photo | All | Upload/replace/remove with confirm modals (5MB; HEIC→JPEG); updates `user.image`; previous SeaweedFS object deleted; navbar avatar syncs immediately |
 | Public Profile | Student + Lecturer | Editable bio (TipTap, plain text max **8000**), skills, social URLs, up to **4** custom-named links; confirm before save / remove |
 | Security | All | Password fields with placeholders, show/hide toggles, live strength checklist, confirm modal + notification email; validation toasts show the specific field message |
 | Login History | All | Last **7 days** of sign-ins beside Security on large screens; friendly location labels (no raw IPv6 blobs); paginated |
 
-Admins skip Public Profile. Campus / major / IDs / batch / semester / department remain admin-managed via User Management + Directory Options. Lecturers may update **name** and **title** from My Settings.
+Admins skip Public Profile. Which identity fields users can edit on My Settings is controlled by Field Permissions. Admins can always override all identity fields (and avatars) from User Management — those writes stay in sync with My Settings.
 
 ---
 

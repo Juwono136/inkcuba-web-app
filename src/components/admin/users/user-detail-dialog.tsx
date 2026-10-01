@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Camera, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -161,7 +161,13 @@ function UserDetailBody({
   const [isActive, setIsActive] = useState(user.isActive);
   const [name, setName] = useState(user.name);
   const [campus, setCampus] = useState(nullableField(user.campus));
-  const [nim, setNim] = useState(nullableField(user.nim));
+  const [nim, setNim] = useState(() => {
+    const existing = nullableField(user.nim);
+    if (existing) return existing;
+    // Legacy lecturers may only have an ID on nidn — surface it as BINUSIAN ID.
+    if (user.role === "LECTURER") return nullableField(user.nidn);
+    return "";
+  });
   const [nidn, setNidn] = useState(nullableField(user.nidn));
   const [major, setMajor] = useState(nullableField(user.major));
   const [batch, setBatch] = useState(nullableField(user.batch));
@@ -170,8 +176,11 @@ function UserDetailBody({
   const [title, setTitle] = useState(nullableField(user.title));
 
   const [confirm, setConfirm] = useState<
-    null | "save" | "soft-delete" | "restore" | "hard-delete"
+    null | "save" | "soft-delete" | "restore" | "hard-delete" | "remove-avatar"
   >(null);
+  const [imageUrl, setImageUrl] = useState(user.image);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canEditIdentity = !user.deletedAt;
   const canMutateRoleStatus = !isSelf && !user.deletedAt;
@@ -186,7 +195,10 @@ function UserDetailBody({
       !nullableEqual(batch, user.batch) ||
       !nullableEqual(semester, user.semester) ||
       !nullableEqual(department, user.department) ||
-      !nullableEqual(title, user.title));
+      !nullableEqual(title, user.title) ||
+      // Prompt save to clear leftover NIDN when role is not lecturer
+      ((role === "STUDENT" || role === "ADMIN") &&
+        Boolean(user.nidn?.trim())));
 
   const roleStatusDirty =
     canMutateRoleStatus && (role !== user.role || isActive !== user.isActive);
@@ -204,8 +216,19 @@ function UserDetailBody({
     if (canEditIdentity) {
       if (name.trim() !== user.name.trim()) body.name = name.trim();
       if (!nullableEqual(campus, user.campus)) body.campus = campus.trim();
+
+      // Role-scoped ID fields:
+      // - BINUSIAN ID → always stored on `nim`
+      // - NIDN → lecturers only (`nidn`)
+      // - Students/admins never send NIDN updates from this form
       if (!nullableEqual(nim, user.nim)) body.nim = nim.trim();
-      if (!nullableEqual(nidn, user.nidn)) body.nidn = nidn.trim();
+      if (role === "LECTURER") {
+        if (!nullableEqual(nidn, user.nidn)) body.nidn = nidn.trim();
+      } else if (role === "STUDENT" || role === "ADMIN") {
+        // Drop leftover lecturer NIDN when saving as student/admin
+        if (user.nidn) body.nidn = "";
+      }
+
       if (!nullableEqual(major, user.major)) body.major = major.trim();
       if (!nullableEqual(batch, user.batch)) body.batch = batch.trim();
       if (!nullableEqual(semester, user.semester)) body.semester = semester.trim();
@@ -222,7 +245,11 @@ function UserDetailBody({
     setIsActive(next.isActive);
     setName(next.name);
     setCampus(nullableField(next.campus));
-    setNim(nullableField(next.nim));
+    const nextNim = nullableField(next.nim);
+    setNim(
+      nextNim ||
+        (next.role === "LECTURER" ? nullableField(next.nidn) : ""),
+    );
     setNidn(nullableField(next.nidn));
     setMajor(nullableField(next.major));
     setBatch(nullableField(next.batch));
@@ -311,6 +338,53 @@ function UserDetailBody({
     }
   }
 
+  async function handleAvatarUpload(file: File) {
+    setAvatarBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const data = await readJson<{ image: string }>(
+        await fetch(`/api/admin/users/${user.id}/avatar`, {
+          method: "POST",
+          body: formData,
+        }),
+      );
+      setImageUrl(data.image);
+      toast.success("Profile photo updated");
+      onChanged();
+      await onRefetch();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload photo",
+      );
+    } finally {
+      setAvatarBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarBusy(true);
+    try {
+      const data = await readJson<{ image: string }>(
+        await fetch(`/api/admin/users/${user.id}/avatar`, {
+          method: "DELETE",
+        }),
+      );
+      setImageUrl(data.image);
+      toast.success("Profile photo removed");
+      onChanged();
+      await onRefetch();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove photo",
+      );
+      throw error;
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
   const directoryDisabled =
     directoryQuery.isLoading || directoryQuery.isError;
 
@@ -335,7 +409,49 @@ function UserDetailBody({
     <>
       <div className="space-y-5">
         <div className="flex items-start gap-4 rounded-2xl border-2 border-slate-200 bg-gradient-to-r from-sky-50 via-violet-50 to-amber-50 p-4">
-          <UserAvatar name={user.name} image={user.image} size="lg" />
+          <div className="flex shrink-0 flex-col items-center gap-2">
+            <UserAvatar name={user.name} image={imageUrl} size="lg" />
+            {!user.deletedAt ? (
+              <div className="flex flex-wrap justify-center gap-1.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleAvatarUpload(file);
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-inkcuba-navy px-2"
+                  disabled={avatarBusy}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {avatarBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="h-3.5 w-3.5" />
+                  )}
+                  <span className="sr-only sm:not-sr-only sm:ml-1">Photo</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-red-600 px-2 text-red-700 hover:bg-red-50"
+                  disabled={avatarBusy}
+                  onClick={() => setConfirm("remove-avatar")}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="sr-only">Remove photo</span>
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <div className="min-w-0 flex-1">
             <p className="font-heading text-lg font-bold break-words text-slate-900">
               {user.name}
@@ -374,14 +490,37 @@ function UserDetailBody({
 
         {user.deletedAt ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <ReadOnlyField label="Campus" value={user.campus} />
-            <ReadOnlyField label="BINUSIAN ID" value={user.binusianId} />
-            <ReadOnlyField label="NIM" value={user.nim} />
-            <ReadOnlyField label="NIDN" value={user.nidn} />
-            <ReadOnlyField label="Major" value={user.major} />
-            <ReadOnlyField label="Batch" value={user.batch} />
-            <ReadOnlyField label="Semester" value={user.semester} />
-            <ReadOnlyField label="Department" value={user.department} />
+            <ReadOnlyField
+              label="Campus"
+              value={user.directoryLabels.campus ?? user.campus}
+            />
+            <ReadOnlyField
+              label={
+                user.role === "STUDENT"
+                  ? "BINUSIAN ID / NIM"
+                  : "BINUSIAN ID"
+              }
+              value={user.binusianId}
+            />
+            {user.role === "LECTURER" ? (
+              <ReadOnlyField label="NIDN (Lecturer ID)" value={user.nidn} />
+            ) : null}
+            <ReadOnlyField
+              label="Major"
+              value={user.directoryLabels.major ?? user.major}
+            />
+            <ReadOnlyField
+              label="Batch"
+              value={user.directoryLabels.batch ?? user.batch}
+            />
+            <ReadOnlyField
+              label="Semester"
+              value={user.directoryLabels.semester ?? user.semester}
+            />
+            <ReadOnlyField
+              label="Department"
+              value={user.directoryLabels.department ?? user.department}
+            />
             <ReadOnlyField label="Title" value={user.title} />
           </div>
         ) : (
@@ -427,29 +566,51 @@ function UserDetailBody({
                 options={directoryOptions("campus")}
                 disabled={directoryDisabled}
               />
-              <ReadOnlyField label="BINUSIAN ID" value={user.binusianId} />
+
+              {/* Role-scoped institutional IDs */}
               <div className="min-w-0 space-y-2">
-                <Label htmlFor="admin-user-nim">NIM (Student ID)</Label>
+                <Label htmlFor="admin-user-binusian-id">
+                  {role === "STUDENT"
+                    ? "BINUSIAN ID / NIM (Student ID)"
+                    : "BINUSIAN ID"}
+                </Label>
                 <Input
-                  id="admin-user-nim"
+                  id="admin-user-binusian-id"
                   value={nim}
                   onChange={(event) => setNim(event.target.value)}
                   placeholder={CLEAR_PLACEHOLDER}
                   className="rounded-xl border-2 border-slate-900 bg-white"
                   autoComplete="off"
                 />
+                {role === "STUDENT" ? (
+                  <p className="text-xs text-slate-500">
+                    For students, BINUSIAN ID and NIM are the same identifier.
+                  </p>
+                ) : role === "LECTURER" ? (
+                  <p className="text-xs text-slate-500">
+                    Institutional BINUSIAN ID for this lecturer.
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Administrator institutional ID.
+                  </p>
+                )}
               </div>
-              <div className="min-w-0 space-y-2">
-                <Label htmlFor="admin-user-nidn">NIDN (Lecturer ID)</Label>
-                <Input
-                  id="admin-user-nidn"
-                  value={nidn}
-                  onChange={(event) => setNidn(event.target.value)}
-                  placeholder={CLEAR_PLACEHOLDER}
-                  className="rounded-xl border-2 border-slate-900 bg-white"
-                  autoComplete="off"
-                />
-              </div>
+
+              {role === "LECTURER" ? (
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor="admin-user-nidn">NIDN (Lecturer ID)</Label>
+                  <Input
+                    id="admin-user-nidn"
+                    value={nidn}
+                    onChange={(event) => setNidn(event.target.value)}
+                    placeholder={CLEAR_PLACEHOLDER}
+                    className="rounded-xl border-2 border-slate-900 bg-white"
+                    autoComplete="off"
+                  />
+                </div>
+              ) : null}
+
               <DirectorySelectField
                 id="admin-user-major"
                 label="Major"
@@ -673,6 +834,16 @@ function UserDetailBody({
         confirmLabel="Remove permanently"
         variant="destructive"
         onConfirm={handleHardDelete}
+      />
+      <ConfirmDialog
+        open={confirm === "remove-avatar"}
+        onOpenChange={(next) => !next && setConfirm(null)}
+        title="Remove profile photo?"
+        description="The current photo will be deleted from storage and replaced with the default avatar."
+        confirmLabel="Remove photo"
+        variant="destructive"
+        loading={avatarBusy}
+        onConfirm={handleAvatarRemove}
       />
     </>
   );

@@ -134,8 +134,9 @@ Dedicated administration console (not the public site header/footer):
 
 - Dedicated admin chrome (not the public header)
 - Brand-colored overview + collapsible sidebar
-- **User Management** at `/dashboard/admin/users` — search, filter, sort, paginate; edit role, activation, and institutional identity; trash / restore / permanent remove
+- **User Management** at `/dashboard/admin/users` — search, filter, sort, paginate; edit role, activation, identity, and profile photo; trash / restore / permanent remove
 - **Directory Options** at `/dashboard/admin/directory` — maintain campus, major, batch, semester, and department lists used by User Management selects
+- **Field Permissions** at `/dashboard/admin/field-permissions` — choose which identity fields each role may edit on My Settings
 - Settings at `/dashboard/admin/settings`
 
 #### Directory Options tips
@@ -143,27 +144,36 @@ Dedicated administration console (not the public site header/footer):
 1. Switch category with the tabs (desktop) or the category dropdown (mobile).
 2. Use **search** to find options by label; results update after a short debounce. Pagination controls appear at the bottom (10 / 20 / 50 per page).
 3. **Add option** only needs a label and active checkbox — the system stores the value automatically. Edit can change the label or active state, not the stored value.
-4. Drag the **grip handle** to reorder how options appear in forms. Clear any active search before reordering.
-5. **Delete** asks for confirmation; existing profile data is left as-is, but the value will no longer appear in selects.
+4. After you **rename a label**, My Settings and User Management show the new text automatically (profiles keep the original value key).
+5. Drag the **grip handle** to reorder how options appear in forms. Clear any active search before reordering.
+6. **Delete** asks for confirmation; existing profile data is left as-is, but the value will no longer appear in selects.
+
+#### Field Permissions tips
+
+1. Open **Field Permissions** and toggle checkboxes per role (Student / Lecturer / Administrator).
+2. Save to apply immediately — My Settings only offers fields you enable for that role.
+3. User Management can always edit every identity field and profile photo, regardless of these toggles.
 
 #### User Management tips
 
 1. Open a user with **Details** to see and edit identity fields (selects come from Directory Options).
-2. Change **Role** or **Account status**, then confirm **Save changes**.
-3. Inactive users cannot sign in until an admin reactivates them.
-4. **Move to trash** soft-deletes for 30 days; use **Open trash** to restore or permanently remove.
-5. You cannot deactivate or delete your own admin account, or remove the last active administrator.
+2. Edit identity IDs by role: **Student** → BINUSIAN ID / NIM; **Lecturer** → BINUSIAN ID + NIDN; **Admin** → BINUSIAN ID only.
+3. Change **Role** or **Account status**, then confirm **Save changes**. Saved identity values stay in sync with that user’s My Settings (including renamed Directory Options labels).
+4. Use the camera / trash controls under the avatar to replace or remove the profile photo (SeaweedFS stays in sync).
+5. Inactive users cannot sign in until an admin reactivates them.
+6. **Move to trash** soft-deletes for 30 days; use **Open trash** to restore or permanently remove.
+7. You cannot deactivate or delete your own admin account, or remove the last active administrator.
 
 #### My Settings (students & lecturers)
 
-1. **Account Identity** — students see NIM, major, batch, semester, department, title (read-only). Lecturers see NIDN, major, department, title and may edit **name** + **title** with confirmation.
+1. **Account Identity** — fields shown by role. Self-edit is controlled by Field Permissions (defaults: students read-only; lecturers may edit name + title). Campus / major / batch / semester / department always show the **current** Directory Options label.
 
 ### My Settings
 
 **Students / Lecturers** — `/dashboard/settings`  
 **Admins** — `/dashboard/admin/settings` (same features, admin console chrome)
 
-1. **Account Identity** — view-only institutional fields (paired with Profile Photo on large screens).
+1. **Account Identity** — students: view-only institutional fields by default. Lecturers & admins: edit fields allowed by Field Permissions (default name + title) with confirmation; other institutional fields stay admin-managed / read-only unless enabled. Paired with Profile Photo on large screens.
 2. **Profile Photo** — change/remove with confirmations; SeaweedFS stays in sync.
 3. **Public Profile** (students & lecturers) — bio (up to 8,000 characters), skills, social links, and up to 4 custom-named links (label + URL).
 4. **Security** + **Login History** — shown **side by side** on large screens so you do not scroll past empty space. Login history covers the last 7 days with plain-language locations (e.g. “Private network”, “This computer”) instead of raw IP strings.

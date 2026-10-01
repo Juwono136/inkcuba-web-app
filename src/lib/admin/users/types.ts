@@ -1,4 +1,5 @@
 import type { UserRole } from "@/lib/auth/permissions";
+import type { DirectoryOptionCategory } from "@/lib/directory/types";
 
 export type AdminUserListItem = {
   id: string;
@@ -19,6 +20,12 @@ export type AdminUserListItem = {
   daysUntilPurge: number | null;
 };
 
+/** Current Directory Options labels for directory-backed fields (values stay on base fields). */
+export type AdminDirectoryLabels = Record<
+  DirectoryOptionCategory,
+  string | null
+>;
+
 export type AdminUserDetail = AdminUserListItem & {
   nim: string | null;
   nidn: string | null;
@@ -29,6 +36,7 @@ export type AdminUserDetail = AdminUserListItem & {
   alumniLabel: string | null;
   department: string | null;
   title: string | null;
+  directoryLabels: AdminDirectoryLabels;
   bio: string | null;
   skills: string[];
   linkedinUrl: string | null;

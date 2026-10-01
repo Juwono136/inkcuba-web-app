@@ -36,6 +36,7 @@ import type {
   AdminUserPatchInput,
 } from "@/lib/admin/users/validators";
 import { createAuditLog } from "@/lib/audit";
+import { resolveDirectoryLabels } from "@/lib/directory/service";
 import {
   ForbiddenError,
   NotFoundError,
@@ -78,8 +79,10 @@ function binusianIdFor(
   nim: string | null,
   nidn: string | null,
 ): string | null {
-  if (role === "STUDENT") return emptyOrNull(nim);
-  if (role === "LECTURER") return emptyOrNull(nidn);
+  // BINUSIAN ID is stored on `nim` for all roles. Lecturers also have a separate NIDN.
+  if (role === "LECTURER") {
+    return emptyOrNull(nim) ?? emptyOrNull(nidn);
+  }
   return emptyOrNull(nim) ?? emptyOrNull(nidn);
 }
 
@@ -120,7 +123,7 @@ async function loadDetailExtras(
   role: UserRole,
 ): Promise<Omit<
   AdminUserDetail,
-  keyof AdminUserListItem | "nim" | "nidn"
+  keyof AdminUserListItem | "nim" | "nidn" | "directoryLabels"
 > & { nim: string | null; nidn: string | null }> {
   const base = {
     nim: null as string | null,
@@ -204,6 +207,24 @@ async function loadDetailExtras(
     };
   }
 
+  if (role === "ADMIN") {
+    // Admins reuse lecturer_profile for title / major / department (same as My Settings).
+    const rows = await db
+      .select()
+      .from(lecturerProfile)
+      .where(eq(lecturerProfile.userId, userId))
+      .limit(1);
+    const profile = rows[0];
+    if (!profile) return base;
+
+    return {
+      ...base,
+      major: emptyOrNull(profile.major),
+      department: emptyOrNull(profile.department),
+      title: emptyOrNull(profile.title),
+    };
+  }
+
   return base;
 }
 
@@ -246,12 +267,20 @@ async function toDetail(
 ): Promise<AdminUserDetail> {
   const listItem = mapListItem(row);
   const extras = await loadDetailExtras(row.id, listItem.role);
+  const directoryLabels = await resolveDirectoryLabels([
+    { category: "campus", value: listItem.campus },
+    { category: "major", value: extras.major },
+    { category: "batch", value: extras.batch },
+    { category: "semester", value: extras.semester },
+    { category: "department", value: extras.department },
+  ]);
 
   return {
     ...listItem,
     ...extras,
     nim: emptyOrNull(row.nim),
     nidn: emptyOrNull(row.nidn),
+    directoryLabels,
   };
 }
 
@@ -619,7 +648,7 @@ export async function patchAdminUser(input: {
           })
           .where(eq(studentProfile.userId, input.userId));
       }
-    } else if (nextRole === "LECTURER") {
+    } else if (nextRole === "LECTURER" || nextRole === "ADMIN") {
       const existing = await db
         .select({ id: lecturerProfile.id })
         .from(lecturerProfile)
