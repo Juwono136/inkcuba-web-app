@@ -106,7 +106,7 @@ Custom links: up to **4** `{ label, url }` objects (`portfolioLinks`); labels ar
 
 ### `PATCH /api/settings/identity`
 
-Any authenticated role. Updates only fields allowed by **Field Permissions** for that role (defaults: lecturers/admins → name + title). Directory-backed fields are validated against active options. Audited as `user.self_update_identity`.
+Any authenticated role. Updates only fields allowed by **Field Permissions** for that role (defaults: lecturers/admins → name + title). Name rules match User Management / signup (`personNameSchema`: letters, spaces, `' . , - ( )`). Directory-backed fields are validated against active options. Audited as `user.self_update_identity`.
 
 ### `POST /api/settings/avatar`
 
@@ -179,7 +179,7 @@ Body (at least one field required). Mutable fields:
 |---|---|
 | `role` | `STUDENT` \| `LECTURER` \| `ADMIN` |
 | `isActive` | boolean; deactivating revokes sessions |
-| `name` | 2–100 chars |
+| `name` | 2–100 chars; letters, spaces, and `' . , - ( )` (e.g. `Manuaba, Ph.D`) |
 | `campus` | Must match an **active** Directory Option (`campus`), or `null`/empty to clear |
 | `nim` / `nidn` | Student / Lecturer IDs (alphanumeric + `_` `-`), or clear |
 | `major` / `batch` / `semester` / `department` | Active Directory Options, or clear |
@@ -241,14 +241,54 @@ Public read of **active** options (optional `category`). Used by admin selects a
 
 ### `GET /api/media/[...key]`
 
-Streams object bytes from storage for allowed prefixes (`avatars/`).
+Streams object bytes from storage for allowed prefixes (`avatars/`, `workspaces/`).
 
 Headers:
 
 - `Content-Type` from storage (or fallback)
 - `Cache-Control: public, max-age=86400, stale-while-revalidate=604800`
 
-Used by `UserAvatar` so browsers never need SeaweedFS Basic Auth credentials.
+Used by `UserAvatar` and workspace backgrounds/description images so browsers never need SeaweedFS Basic Auth credentials.
+
+---
+
+## Lecturer Workspaces API (LECTURER only)
+
+### `GET /api/lecturer/workspaces`
+
+Paginated list of owned workspaces. Query:
+
+| Param | Default | Notes |
+|---|---|---|
+| `page` | `1` | |
+| `pageSize` | `12` | max 48 |
+| `q` | | Search name / class / semester (ilike) |
+| `semester` | | Exact Directory Options value |
+| `status` | `ALL` | `ALL` \| `DRAFT` \| `ACTIVE` \| `INACTIVE` |
+| `sortBy` | `updatedAt` | `updatedAt` \| `createdAt` \| `name` \| `className` \| `semester` |
+| `sortDir` | `desc` | `asc` \| `desc` |
+
+Response: `{ items, total, page, pageSize, totalPages }`.
+
+### `POST /api/lecturer/workspaces`
+
+Create workspace. Accepts JSON or `multipart/form-data` with fields `name`, `className`, `semester`, `description?`, `status?` (`DRAFT` \| `ACTIVE` \| `INACTIVE`, default **`DRAFT`**), optional file `background`. Semester must be an active Directory Option. Audited as `workspace.create`.
+
+### `GET|PATCH|DELETE /api/lecturer/workspaces/[workspaceId]`
+
+Owner-only detail / update / hard delete. PATCH body: `name?`, `className?`, `semester?`, `description?`, `status?`. **Students may access a workspace only when `status === ACTIVE`** (enforced by `assertStudentCanAccessWorkspace` / `assertStudentCanAccessWorkspaceByInviteCode` for future student routes). Delete removes SeaweedFS background + description images. Audited as `workspace.update` / `workspace.delete`.
+
+### `POST|DELETE /api/lecturer/workspaces/[workspaceId]/background`
+
+Replace or clear background (multipart `file` on POST). Upload → DB → delete previous key.
+
+### `POST /api/lecturer/workspaces/[workspaceId]/description-image`
+
+Upload an image for TipTap description inserts. Returns `{ key, url }` (`/api/media/...`).
+
+### `POST /api/lecturer/workspaces/tmp-description-image`
+
+Same as above for create-form drafts under `workspaces/tmp/{lecturerId}/`.
 
 ---
 

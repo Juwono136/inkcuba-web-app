@@ -31,7 +31,7 @@ inkcuba uses **Better Auth** with email/password only. Institutional email valid
 
 | Field | Rules |
 |---|---|
-| Full name | 2–100 characters |
+| Full name | 2–100 characters; letters, spaces, and common punctuation (`' . , - ( )`) |
 | Email | `@binus.edu` or `@binus.ac.id` |
 | BINUSIAN ID | Alphanumeric, 5–20 chars (stored as `nim`; self-signup is always STUDENT) |
 | Campus | One of the official BINUS campus labels |

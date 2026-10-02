@@ -13,6 +13,7 @@ import {
   assignmentTypeEnum,
   groupAssignmentMethodEnum,
   workspaceMemberStatusEnum,
+  workspaceStatusEnum,
 } from "@/db/schema/enums";
 
 export const workspace = pgTable(
@@ -22,14 +23,14 @@ export const workspace = pgTable(
     lecturerId: text("lecturer_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    courseCode: text("course_code").notNull(),
-    courseName: text("course_name").notNull(),
+    name: text("name").notNull(),
     className: text("class_name").notNull(),
     semester: text("semester").notNull(),
-    academicYear: text("academic_year").notNull(),
     description: text("description"),
+    backgroundImageKey: text("background_image_key"),
+    backgroundImageUrl: text("background_image_url"),
     inviteCode: text("invite_code").notNull().unique(),
-    isActive: boolean("is_active").default(true).notNull(),
+    status: workspaceStatusEnum("status").default("DRAFT").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -38,14 +39,13 @@ export const workspace = pgTable(
   },
   (table) => [
     index("workspace_lecturer_id_idx").on(table.lecturerId),
-    index("workspace_course_code_idx").on(table.courseCode),
     index("workspace_semester_idx").on(table.semester),
+    index("workspace_status_idx").on(table.status),
     uniqueIndex("workspace_unique_class_idx").on(
-      table.courseCode,
+      table.lecturerId,
+      table.name,
       table.className,
       table.semester,
-      table.academicYear,
-      table.lecturerId,
     ),
   ],
 );

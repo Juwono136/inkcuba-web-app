@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { BINUS_CAMPUSES } from "@/lib/auth/constants";
 import { isAllowedInstitutionalEmail } from "@/lib/auth/permissions";
+import { personNameSchema } from "@/lib/validators/common";
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -40,11 +41,7 @@ export const signInSchema = z.object({
 
 export const signUpSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(2, "Full name must be at least 2 characters")
-      .max(100, "Full name must be at most 100 characters"),
+    name: personNameSchema,
     email: institutionalEmailSchema,
     binusianId: z
       .string()

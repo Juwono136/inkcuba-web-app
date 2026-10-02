@@ -5,6 +5,7 @@ import {
   USER_LIST_MAX_PAGE_SIZE,
   USER_SORT_FIELDS,
 } from "@/lib/admin/users/constants";
+import { personNameSchema } from "@/lib/validators/common";
 
 export const adminUserListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -60,16 +61,7 @@ export const adminUserPatchSchema = z
   .object({
     role: z.enum(["STUDENT", "LECTURER", "ADMIN"]).optional(),
     isActive: z.boolean().optional(),
-    name: z
-      .string()
-      .trim()
-      .min(2, "Name must be at least 2 characters")
-      .max(100, "Name must be at most 100 characters")
-      .regex(
-        /^[\p{L}\p{M}\s'.-]+$/u,
-        "Name may only include letters, spaces, and ' . -",
-      )
-      .optional(),
+    name: personNameSchema.optional(),
     campus: clearableText,
     nim: clearableId("Student ID"),
     nidn: clearableId("Lecturer ID"),

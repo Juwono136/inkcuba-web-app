@@ -58,9 +58,10 @@ UI therefore uses:
 
 ```
 /api/media/avatars/...
+/api/media/workspaces/...
 ```
 
-Resolver: `src/lib/media/resolve-avatar-url.ts`  
+Resolver: `src/lib/media/resolve-avatar-url.ts` (avatars)  
 Component: `UserAvatar`
 
 Behavior:
@@ -69,7 +70,19 @@ Behavior:
 2. Proxy fetches with server credentials and streams bytes.
 3. On error → fallback initials avatar.
 
-Allowed proxy prefixes: `avatars/` only.
+Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `workspaces/tmp/{lecturerId}/`).
+
+---
+
+## Workspace media (SeaweedFS)
+
+| Asset | Prefix | Max size | Notes |
+|---|---|---|---|
+| Background | `workspaces/{workspaceId}/background/` | **10MB** | JPG/PNG/WebP/HEIC; recommended **1600×480 px** (≈10:3 landscape); replace = upload → DB → delete previous |
+| Description images | `workspaces/{workspaceId}/description/` | **5MB** | TipTap inserts; orphans removed on description update/delete |
+| Create-time drafts | `workspaces/tmp/{lecturerId}/` | **5MB** | Used while creating a workspace before an id exists |
+
+Default background in UI (no storage object): brand gradient + inkcuba logo.
 
 ---
 

@@ -78,7 +78,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const parsed = adminUserPatchSchema.safeParse(body);
 
     if (!parsed.success) {
-      throw new ValidationError("Invalid update payload", parsed.error.flatten());
+      const firstIssue = parsed.error.issues[0]?.message;
+      throw new ValidationError(
+        firstIssue || "Invalid update payload",
+        parsed.error.flatten(),
+      );
     }
 
     const meta = clientMeta(request);

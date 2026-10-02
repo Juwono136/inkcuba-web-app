@@ -20,6 +20,7 @@ import { assertDirectoryValue } from "@/lib/directory/service";
 import { getEditableFieldsForRole } from "@/lib/role-field-permissions/service";
 import type { SettingsIdentityField } from "@/lib/role-field-permissions/types";
 import { getSettingsForUser } from "@/lib/settings/get-settings";
+import { personNameSchema } from "@/lib/validators/common";
 
 const clearableText = z
   .union([z.string(), z.null()])
@@ -29,15 +30,7 @@ const clearableText = z
     return trimmed.length > 0 ? trimmed : null;
   });
 
-const nameSchema = z
-  .string()
-  .trim()
-  .min(2, "Name must be at least 2 characters")
-  .max(100, "Name must be at most 100 characters")
-  .regex(
-    /^[\p{L}\p{M}\s'.-]+$/u,
-    "Name may only include letters, spaces, and ' . -",
-  );
+const nameSchema = personNameSchema;
 
 const titleSchema = z
   .union([
@@ -57,7 +50,7 @@ const idSchema = z
       .string()
       .trim()
       .min(5, "ID must be at least 5 characters")
-      .max(20, "ID must be at most 20 characters")
+      .max(32, "ID must be at most 32 characters")
       .regex(
         /^[A-Za-z0-9_-]+$/,
         "ID may only include letters, numbers, _ and -",

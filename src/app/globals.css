@@ -179,53 +179,78 @@
     radial-gradient(circle at 78% 72%, rgba(14, 165, 233, 0.28) 0 3px, transparent 4px);
 }
 
-/* TipTap / ProseMirror — settings bio editor */
+/* TipTap / ProseMirror editor + sanitized HTML read view */
 .inkcuba-rich-text.ProseMirror {
   min-height: 140px;
 }
 
-.inkcuba-rich-text.ProseMirror p {
+.inkcuba-rich-text.ProseMirror p,
+.inkcuba-rich-text-content p {
   margin: 0.35em 0;
 }
 
-.inkcuba-rich-text.ProseMirror p:first-child {
+.inkcuba-rich-text.ProseMirror p:first-child,
+.inkcuba-rich-text-content > :first-child {
   margin-top: 0;
 }
 
-.inkcuba-rich-text.ProseMirror p:last-child {
+.inkcuba-rich-text.ProseMirror p:last-child,
+.inkcuba-rich-text-content > :last-child {
   margin-bottom: 0;
 }
 
-.inkcuba-rich-text.ProseMirror ul {
+.inkcuba-rich-text.ProseMirror ul,
+.inkcuba-rich-text-content ul {
   list-style: disc;
-  margin: 0.35em 0;
-  padding-left: 1.25rem;
+  margin: 0.5em 0;
+  padding-left: 1.35rem;
 }
 
-.inkcuba-rich-text.ProseMirror ol {
+.inkcuba-rich-text.ProseMirror ol,
+.inkcuba-rich-text-content ol {
   list-style: decimal;
-  margin: 0.35em 0;
-  padding-left: 1.25rem;
+  margin: 0.5em 0;
+  padding-left: 1.35rem;
 }
 
-.inkcuba-rich-text.ProseMirror li {
-  margin: 0.15em 0;
+.inkcuba-rich-text.ProseMirror li,
+.inkcuba-rich-text-content li {
+  margin: 0.2em 0;
+  display: list-item;
 }
 
-.inkcuba-rich-text.ProseMirror li p {
+.inkcuba-rich-text.ProseMirror li p,
+.inkcuba-rich-text-content li p {
   margin: 0;
 }
 
-.inkcuba-rich-text.ProseMirror a {
+.inkcuba-rich-text.ProseMirror a,
+.inkcuba-rich-text-content a {
   color: #0284c7;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.inkcuba-rich-text.ProseMirror strong {
+.inkcuba-rich-text.ProseMirror strong,
+.inkcuba-rich-text-content strong,
+.inkcuba-rich-text.ProseMirror b,
+.inkcuba-rich-text-content b {
   font-weight: 700;
 }
 
-.inkcuba-rich-text.ProseMirror em {
+.inkcuba-rich-text.ProseMirror em,
+.inkcuba-rich-text-content em,
+.inkcuba-rich-text.ProseMirror i,
+.inkcuba-rich-text-content i {
   font-style: italic;
+}
+
+.inkcuba-rich-text-content img {
+  display: block;
+  margin: 0.75rem 0;
+  max-height: 14rem;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  object-fit: cover;
 }

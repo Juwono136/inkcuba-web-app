@@ -117,7 +117,15 @@ For student accounts. Currently shows a welcome workspace shell for upcoming por
 
 ### Lecturer dashboard (`/dashboard/lecturer`)
 
-For lecturer accounts. Currently shows a review-workspace shell for upcoming course/review tools.
+For lecturer accounts. Overview shows a create-workspace CTA and your recent workspaces. Use **Workspaces** in the sidebar for the full list.
+
+#### Workspaces
+
+1. Open **Workspaces** → use search, semester/status filters, and sort as the list grows; on mobile, tap **Search & filters** to expand or collapse those controls. Change page size at the bottom.
+2. **Create workspace** — enter **workspace name**, **class name**, and **semester** (from Directory Options). Choose **status** (**Draft** by default, **Active**, or **Inactive**). Optionally upload a background (**recommended 1600 × 480 px**, ≤10MB) and write a rich description. Confirm in the modal before creating.
+3. After create, open the workspace: **Info** shows your lecturer profile + workspace details. **Edit** opens a dialog (including status); confirm before saving. **Delete** also asks for confirmation.
+4. Only **Active** workspaces can be accessed by students. **Draft** and **Inactive** stay lecturer-only.
+5. **People**, **Submission**, and **Scoring** are Coming Soon.
 
 ### Admin dashboard (`/dashboard/admin`)
 
@@ -173,7 +181,7 @@ Dedicated administration console (not the public site header/footer):
 **Students / Lecturers** — `/dashboard/settings`  
 **Admins** — `/dashboard/admin/settings` (same features, admin console chrome)
 
-1. **Account Identity** — students: view-only institutional fields by default. Lecturers & admins: edit fields allowed by Field Permissions (default name + title) with confirmation; other institutional fields stay admin-managed / read-only unless enabled. Paired with Profile Photo on large screens.
+1. **Account Identity** — students: view-only institutional fields by default. Lecturers & admins: edit fields allowed by Field Permissions (default name + title) with confirmation; other institutional fields stay admin-managed / read-only unless enabled. Full name allows common punctuation (e.g. `Manuaba, Ph.D`). Paired with Profile Photo on large screens.
 2. **Profile Photo** — change/remove with confirmations; SeaweedFS stays in sync.
 3. **Public Profile** (students & lecturers) — bio (up to 8,000 characters), skills, social links, and up to 4 custom-named links (label + URL).
 4. **Security** + **Login History** — shown **side by side** on large screens so you do not scroll past empty space. Login history covers the last 7 days with plain-language locations (e.g. “Private network”, “This computer”) instead of raw IP strings.

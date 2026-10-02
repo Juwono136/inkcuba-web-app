@@ -13,6 +13,10 @@ import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/constants";
 import { validateInstitutionalEmail } from "@/lib/auth/permissions";
 import { sendResetPasswordEmail } from "@/lib/email/services/reset-password";
 import { sendVerificationEmail } from "@/lib/email/services/verification";
+import {
+  PERSON_NAME_PATTERN_MESSAGE,
+  personNameSchema,
+} from "@/lib/validators/common";
 
 let authInstance: ReturnType<typeof betterAuth> | undefined;
 
@@ -109,11 +113,21 @@ function createAuthConfig(): BetterAuthOptions {
           before: async (user) => {
             validateInstitutionalEmail(user.email);
 
+            const nameResult = personNameSchema.safeParse(user.name);
+            if (!nameResult.success) {
+              throw new APIError("BAD_REQUEST", {
+                message:
+                  nameResult.error.issues[0]?.message ??
+                  PERSON_NAME_PATTERN_MESSAGE,
+              });
+            }
+
             // Self-service registration is always STUDENT.
             // LECTURER / ADMIN are assigned later via Admin User Management (or seed).
             return {
               data: {
                 ...user,
+                name: nameResult.data,
                 role: "STUDENT",
               },
             };

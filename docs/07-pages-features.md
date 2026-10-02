@@ -60,7 +60,8 @@ Dashboard chrome is **role-aware**:
 |---|---|---|
 | `/dashboard` | Any auth user | Redirect by role |
 | `/dashboard/student` | STUDENT | Welcome shell |
-| `/dashboard/lecturer` | LECTURER | Welcome shell |
+| `/dashboard/lecturer` | LECTURER | Overview + recent workspaces CTA |
+| `/dashboard/lecturer/workspaces` | LECTURER | Workspace list / create / detail (Phase 1) |
 | `/dashboard/admin` | ADMIN | Admin overview console |
 | `/dashboard/admin/users` | ADMIN | User Management (list, detail modal, trash) |
 | `/dashboard/admin/directory` | ADMIN | Directory Options (campus, major, batch, semester, department) |
@@ -73,8 +74,20 @@ Dashboard chrome is **role-aware**:
 
 - Keeps the public marketing chrome (`SiteHeader` / `SiteFooter`) — intentionally **different** from the admin console
 - Desktop: sticky sidebar (`top` below SiteHeader) so Navigate + Account stay visible while scrolling long pages; Account (My Settings) sits directly under Navigate
+- Lecturer Navigate: **Overview**, **Workspaces** (Reviews/Portfolios placeholders removed)
 - Mobile: solid overlay drawer; main column always full width
 - Toggle via toolbar icon; desktop preference in `inkcuba.workspace-sidebar-open`
+
+### Lecturer Workspaces (Phase 1)
+
+- List + create at `/dashboard/lecturer/workspaces` (+ `/new`)
+- List supports **debounced search**, semester filter, status (`Draft` / `Active` / `Inactive`), sort (name/class/semester/dates), and **pagination** (6/12/24/48); filters collapse behind **Search & filters** on small screens
+- Detail at `/dashboard/lecturer/workspaces/[workspaceId]` with tabs:
+  - **Info** — compact lecturer card + workspace details; edit opens a dialog with confirm-before-save (includes **status** picker)
+  - **People / Submission / Scoring** — Coming Soon placeholders (distinct tab icons)
+- Required fields: name, class name, semester (Directory Options). Optional: background ≤10MB, description ≤8000 plain chars (TipTap + images). Status defaults to **Draft** on create so students cannot access until the lecturer sets **Active**
+- Confirm modals for create, update, and delete; SeaweedFS keys under `workspaces/…` stay in sync on replace/delete
+- Student-facing workspace views are deferred; server helpers already deny student access when status is Draft or Inactive
 
 ### Admin console UX
 
@@ -210,10 +223,12 @@ These power the public exhibition experience until live portfolio APIs are conne
 
 ## Planned feature surfaces (schema-ready)
 
-1. Portfolio submission workspace for students  
-2. Lecturer review / publish workflow  
-3. Real explore filters backed by DB  
-4. Audit trail visibility UI for admins (writes already exist from User Management)
+1. Portfolio submission workspace for students
+2. Lecturer Workspaces Phase 2 — People (Excel/manual), Submission cards, Scoring
+3. Student workspace access (Info + Submission only)
+4. Public exhibition pipeline for approved portfolios
+5. Real explore filters backed by DB
+6. Audit trail visibility UI for admins (writes already exist from User Management)
 
 See [01 — Product Overview](./01-product-overview.md) status matrix.
 

@@ -33,6 +33,7 @@ Defined in `src/db/schema/enums.ts`:
 | `portfolio_status` | `DRAFT`, `PENDING_REVIEW`, `REVISION_REQUIRED`, `APPROVED`, `TAKEDOWN`, `ARCHIVED` |
 | `assignment_type` | `INDIVIDUAL`, `GROUP` |
 | `group_assignment_method` | `RANDOM`, `MANUAL`, `SELF_SELECT` |
+| `workspace_status` | `DRAFT`, `ACTIVE`, `INACTIVE` — only `ACTIVE` is open to students |
 | `workspace_member_status` | `INVITED`, `ACTIVE`, `REMOVED` |
 
 ---
@@ -136,16 +137,26 @@ Identity self-edit is gated by Field Permissions; admins can always edit all ide
 
 ## Workspace tables (`src/db/schema/workspaces.ts`)
 
-Supports lecturer-managed course workspaces, assignments, membership, and group formation.
+Supports lecturer-managed class workspaces (portfolio verification entry point), plus future membership, assignments, and groups.
 
-Key concepts:
+### `workspace` (Phase 1 product fields)
 
-- Workspace owned/managed by lecturers
-- Assignments (`INDIVIDUAL` / `GROUP`)
-- Members with status `INVITED` / `ACTIVE` / `REMOVED`
-- Group assignment methods `RANDOM` / `MANUAL` / `SELF_SELECT`
+| Column | Notes |
+|---|---|
+| `name` | Required display name |
+| `class_name` | Required class label (e.g. LA01) |
+| `semester` | Required Directory Options **value** (category `semester`) |
+| `description` | Optional sanitized HTML (rich text + images), plain-text max 8000 |
+| `background_image_key` / `background_image_url` | Optional SeaweedFS background (null → brand gradient default in UI) |
+| `invite_code` | Unique code reserved for future People join flows |
+| `lecturer_id` | Owner (cascade on user delete) |
+| `status` | `DRAFT` \| `ACTIVE` \| `INACTIVE` (default `DRAFT` on create). Students may access only `ACTIVE`. |
 
-> End-to-end workspace UI/API is planned on top of this schema.
+Unique on `(lecturer_id, name, class_name, semester)`. Index on `status`. Migrations: `0009_workspace_product_fields`, `0010_workspace_status`.
+
+Also present (unused in Phase 1 UI): `workspace_member`, `assignment`, `assignment_group`, `assignment_group_member`.
+
+> Lecturer APIs/UI for create · edit · delete · Info tab are live. People / Submission / Scoring tabs are Coming Soon placeholders. Student workspace access helpers (`assertStudentCanAccessWorkspace*`) enforce Active-only; student UI is planned next.
 
 ---
 
@@ -172,7 +183,10 @@ Audit log table for security/operational events. Helpers live under `src/lib/aud
 |---|---|
 | `0000_mean_apocalypse.sql` | Initial schema |
 | `0001_rainy_jackpot.sql` | Add `user.campus` + index |
-| `0002_remove_super_admin.sql` | Merge `SUPER_ADMIN` → `ADMIN` (PRD alignment) |
+| `0007_directory_options.sql` | Directory options table |
+| `0008_role_field_permissions.sql` | Role field permission matrix |
+| `0009_workspace_product_fields.sql` | Workspace name/class/semester/background reshape |
+| `0010_workspace_status.sql` | Replace `is_active` with `workspace_status` enum (`DRAFT`/`ACTIVE`/`INACTIVE`) |
 
 Migration journal: `drizzle/meta/_journal.json`.
 

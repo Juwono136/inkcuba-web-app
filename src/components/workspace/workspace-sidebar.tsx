@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ClipboardCheck,
   FolderKanban,
   LayoutDashboard,
   PanelLeftClose,
@@ -27,7 +26,7 @@ const ICONS = {
   overview: LayoutDashboard,
   settings: Settings,
   portfolios: FolderKanban,
-  reviews: ClipboardCheck,
+  workspaces: FolderKanban,
 } as const;
 
 function isActive(pathname: string, item: WorkspaceNavItem) {

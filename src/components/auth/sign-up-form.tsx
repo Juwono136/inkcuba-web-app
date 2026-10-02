@@ -120,7 +120,12 @@ export function SignUpForm() {
         />
         {errors.name ? (
           <p className="text-xs text-red-500">{errors.name}</p>
-        ) : null}
+        ) : (
+          <p className="text-xs text-slate-500">
+            Letters, spaces, and punctuation such as , . &apos; - ( ) are
+            allowed.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

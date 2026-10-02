@@ -26,6 +26,11 @@ import type {
 } from "@/lib/settings/get-settings";
 import type { SettingsIdentityField } from "@/lib/role-field-permissions/types";
 import { SETTINGS_IDENTITY_FIELD_LABELS } from "@/lib/role-field-permissions/types";
+import {
+  PERSON_NAME_MAX,
+  PERSON_NAME_MIN,
+  validatePersonName,
+} from "@/lib/validators/common";
 
 type AccountIdentitySectionProps = {
   identity: SettingsIdentity;
@@ -175,14 +180,8 @@ export function AccountIdentitySection({
   function requestSave() {
     const errors: Record<string, string> = {};
     if (canEditField("name")) {
-      const trimmedName = form.name.trim();
-      if (trimmedName.length < 2) {
-        errors.name = "Name must be at least 2 characters";
-      } else if (trimmedName.length > 100) {
-        errors.name = "Name must be at most 100 characters";
-      } else if (!/^[\p{L}\p{M}\s'.-]+$/u.test(trimmedName)) {
-        errors.name = "Name may only include letters, spaces, and ' . -";
-      }
+      const nameError = validatePersonName(form.name);
+      if (nameError) errors.name = nameError;
     }
     if (canEditField("title")) {
       const trimmedTitle = form.title.trim();
@@ -190,6 +189,26 @@ export function AccountIdentitySection({
         errors.title = "Title must be at least 2 characters";
       } else if (trimmedTitle.length > 80) {
         errors.title = "Title must be at most 80 characters";
+      }
+    }
+    if (canEditField("nim") && form.nim.trim()) {
+      const trimmed = form.nim.trim();
+      if (trimmed.length < 5) {
+        errors.nim = "ID must be at least 5 characters";
+      } else if (trimmed.length > 32) {
+        errors.nim = "ID must be at most 32 characters";
+      } else if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) {
+        errors.nim = "ID may only include letters, numbers, _ and -";
+      }
+    }
+    if (canEditField("nidn") && form.nidn.trim()) {
+      const trimmed = form.nidn.trim();
+      if (trimmed.length < 5) {
+        errors.nidn = "ID must be at least 5 characters";
+      } else if (trimmed.length > 32) {
+        errors.nidn = "ID must be at most 32 characters";
+      } else if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) {
+        errors.nidn = "ID may only include letters, numbers, _ and -";
       }
     }
 
@@ -311,9 +330,16 @@ export function AccountIdentitySection({
         <Input
           id={`identity-${field}`}
           value={form[field as keyof FormState]}
-          onChange={(event) =>
-            setForm((prev) => ({ ...prev, [field]: event.target.value }))
-          }
+          onChange={(event) => {
+            setForm((prev) => ({ ...prev, [field]: event.target.value }));
+            if (fieldErrors[field]) {
+              setFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+              });
+            }
+          }}
           placeholder={placeholder}
           disabled={saving}
           className="rounded-xl border-2 border-slate-900 bg-white"
@@ -321,6 +347,11 @@ export function AccountIdentitySection({
         />
         {fieldErrors[field] ? (
           <p className="text-xs text-red-500">{fieldErrors[field]}</p>
+        ) : field === "name" ? (
+          <p className="text-xs text-slate-500">
+            Letters, spaces, and punctuation such as , . &apos; - ( ) are
+            allowed ({PERSON_NAME_MIN}–{PERSON_NAME_MAX} chars).
+          </p>
         ) : null}
       </div>
     );
@@ -371,7 +402,7 @@ export function AccountIdentitySection({
       {editing && canEdit ? (
         <div className="mb-5 space-y-4 rounded-2xl border-2 border-inkcuba-navy bg-sky-50/40 p-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            {renderTextInput("name", "e.g. Ida Bagus Manuaba")}
+            {renderTextInput("name", "e.g. Ida Bagus Manuaba, Ph.D")}
             {renderTextInput("title", "e.g. Senior Lecturer")}
             {renderDirectorySelect("campus", "campus")}
             {renderTextInput("nim", "BINUSIAN ID")}

@@ -4,7 +4,7 @@ import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 import { handleApiError } from "@/lib/api/response";
 import { fetchObject } from "@/lib/storage/client";
 
-const ALLOWED_PREFIXES = ["avatars/"] as const;
+const ALLOWED_PREFIXES = ["avatars/", "workspaces/"] as const;
 
 function isAllowedMediaKey(key: string): boolean {
   return ALLOWED_PREFIXES.some((prefix) => key.startsWith(prefix));

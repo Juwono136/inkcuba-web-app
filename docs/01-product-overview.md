@@ -48,7 +48,8 @@ Public visitors browse without an account.
 | User menu dropdown | Done | Dashboard, settings, logout + confirm modal |
 | Avatar upload (SeaweedFS) | Done | Upload on form submit only |
 | Media proxy for private storage | Done | `/api/media/[...key]` |
-| Dashboards (student / lecturer / admin) | Shell | Role-gated placeholder workspaces |
+| Dashboards (student / lecturer / admin) | Partial | Lecturer Workspaces Phase 1 live; student/admin shells remain |
+| Lecturer Workspaces | Done (Phase 1) | Create/edit/list; Info tab; People/Submission/Scoring Coming Soon |
 | My Settings page | Done | Identity (RO), photo, public profile, password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
 | Admin User Management | Done | List/search/filter; edit role, activation, identity; soft delete + trash; audit writes |
@@ -64,8 +65,8 @@ Public visitors browse without an account.
 
 | Area | Status | Notes |
 |---|---|---|
-| Student / lecturer profiles | Schema ready | Tables exist; profile editing UI planned |
-| Workspaces / assignments / groups | Schema ready | Course workspace flow planned |
+| Student / lecturer profiles | Done | My Settings + admin identity sync |
+| Workspaces (lecturer Phase 1) | Done | Create/edit/list + Info; members/assignments APIs later |
 | Portfolios / media / reviews | Schema ready | Submission & review workflow planned |
 | Audit logs | Schema ready | Audit helpers exist |
 

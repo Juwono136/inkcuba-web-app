@@ -1,7 +1,11 @@
-import { ClipboardCheck, FolderKanban, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { FolderKanban, Plus, Sparkles } from "lucide-react";
 
+import { WorkspaceDefaultBackground } from "@/components/lecturer/workspaces/workspace-form";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { Button } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth/require-role";
+import { listLecturerWorkspaces } from "@/lib/workspaces/service";
 
 export const metadata = {
   title: "Lecturer Dashboard",
@@ -9,11 +13,15 @@ export const metadata = {
 
 export default async function LecturerDashboardPage() {
   const session = await requireRole(["LECTURER"]);
+  const workspaces = await listLecturerWorkspaces({
+    lecturerId: session.user.id,
+    query: { page: 1, pageSize: 6, sortBy: "updatedAt", sortDir: "desc" },
+  });
 
   return (
     <DashboardShell
       title="Lecturer Dashboard"
-      description="Review student submissions, manage courses, and publish verified portfolios to the exhibition."
+      description="Create workspaces, enroll students, collect portfolio submissions, and verify exhibition-ready work."
     >
       <div className="mb-6 overflow-hidden rounded-2xl border-2 border-inkcuba-navy bg-white shadow-inkcuba">
         <div className="border-b-2 border-inkcuba-navy bg-gradient-to-r from-violet-100 via-fuchsia-50 to-orange-100 px-5 py-4 sm:px-6">
@@ -27,43 +35,86 @@ export default async function LecturerDashboardPage() {
         </div>
         <div className="bg-inkcuba-doodle p-5 sm:p-6">
           <p className="text-sm leading-relaxed text-slate-600">
-            Review queues and exhibition tools will live here. Collapse the
-            sidebar when you need more room, or open My Settings from Account.
+            Start by creating a workspace for each class. Students you add under
+            People will later submit portfolios for your review and scoring.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              asChild
+              className="bg-inkcuba-cyan shadow-inkcuba hover:bg-sky-600"
+            >
+              <Link href="/dashboard/lecturer/workspaces/new">
+                <Plus className="h-4 w-4" />
+                Create workspace
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="border-slate-900">
+              <Link href="/dashboard/lecturer/workspaces">
+                <FolderKanban className="h-4 w-4" />
+                View all workspaces
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border-2 border-inkcuba-navy bg-gradient-to-br from-violet-50 to-white p-5 shadow-inkcuba">
-          <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border-2 border-inkcuba-navy bg-violet-100 text-inkcuba-purple">
-            <ClipboardCheck className="h-5 w-5" />
-          </div>
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
           <h2 className="font-heading text-lg font-bold text-slate-900">
-            Reviews
+            Recent workspaces
           </h2>
-          <p className="mt-1.5 text-sm text-slate-600">
-            Approve, request revisions, and verify student exhibition work.
-          </p>
-          <p className="mt-4 text-xs font-bold tracking-wide text-inkcuba-purple uppercase">
-            Coming soon
-          </p>
+          {workspaces.total > 0 ? (
+            <Link
+              href="/dashboard/lecturer/workspaces"
+              className="text-xs font-semibold text-inkcuba-purple underline-offset-2 hover:underline"
+            >
+              See all ({workspaces.total})
+            </Link>
+          ) : null}
         </div>
 
-        <div className="rounded-2xl border-2 border-inkcuba-navy bg-gradient-to-br from-orange-50 to-white p-5 shadow-inkcuba">
-          <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border-2 border-inkcuba-navy bg-orange-100 text-inkcuba-orange">
-            <FolderKanban className="h-5 w-5" />
+        {workspaces.items.length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-inkcuba-navy bg-white p-6 text-center shadow-inkcuba">
+            <p className="text-sm text-slate-600">
+              You haven&apos;t created a workspace yet.
+            </p>
           </div>
-          <h2 className="font-heading text-lg font-bold text-slate-900">
-            Portfolios
-          </h2>
-          <p className="mt-1.5 text-sm text-slate-600">
-            Publish verified portfolios to the public inkcuba exhibition.
-          </p>
-          <p className="mt-4 text-xs font-bold tracking-wide text-inkcuba-orange uppercase">
-            Coming soon
-          </p>
-        </div>
-      </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {workspaces.items.map((item) => (
+              <Link
+                key={item.id}
+                href={`/dashboard/lecturer/workspaces/${item.id}`}
+                className="group overflow-hidden rounded-2xl border-2 border-inkcuba-navy bg-white shadow-inkcuba transition hover:-translate-y-0.5"
+              >
+                <div className="relative aspect-[2/1] w-full overflow-hidden">
+                  {item.backgroundImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.backgroundImageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <WorkspaceDefaultBackground
+                      compact
+                      className="h-full w-full"
+                    />
+                  )}
+                </div>
+                <div className="space-y-1 p-4">
+                  <h3 className="font-heading text-base font-bold text-slate-900 group-hover:text-inkcuba-purple">
+                    {item.name}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {item.className} · {item.semesterLabel}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </DashboardShell>
   );
 }

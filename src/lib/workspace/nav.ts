@@ -5,7 +5,7 @@ export type WorkspaceRole = "STUDENT" | "LECTURER";
 export type WorkspaceNavItem = {
   href: string;
   label: string;
-  icon: "overview" | "settings" | "portfolios" | "reviews";
+  icon: "overview" | "settings" | "portfolios" | "workspaces";
   exact?: boolean;
   disabled?: boolean;
   badge?: string;
@@ -34,18 +34,9 @@ export function getWorkspacePrimaryNav(
         exact: true,
       },
       {
-        href: "/dashboard/lecturer/reviews",
-        label: "Reviews",
-        icon: "reviews",
-        disabled: true,
-        badge: "Soon",
-      },
-      {
-        href: "/dashboard/lecturer/portfolios",
-        label: "Portfolios",
-        icon: "portfolios",
-        disabled: true,
-        badge: "Soon",
+        href: "/dashboard/lecturer/workspaces",
+        label: "Workspaces",
+        icon: "workspaces",
       },
     ];
   }
@@ -98,13 +89,28 @@ export function getWorkspaceBreadcrumbs(
     return crumbs;
   }
 
-  if (pathname.includes("/portfolios")) {
-    crumbs.push({ label: "Portfolios" });
+  if (pathname.startsWith("/dashboard/lecturer/workspaces")) {
+    crumbs.push({
+      label: "Workspaces",
+      href: "/dashboard/lecturer/workspaces",
+    });
+
+    if (pathname.endsWith("/new")) {
+      crumbs.push({ label: "Create" });
+      return crumbs;
+    }
+
+    const detailMatch = pathname.match(
+      /^\/dashboard\/lecturer\/workspaces\/([^/]+)/,
+    );
+    if (detailMatch?.[1] && detailMatch[1] !== "new") {
+      crumbs.push({ label: "Details" });
+    }
     return crumbs;
   }
 
-  if (pathname.includes("/reviews")) {
-    crumbs.push({ label: "Reviews" });
+  if (pathname.includes("/portfolios")) {
+    crumbs.push({ label: "Portfolios" });
     return crumbs;
   }
 

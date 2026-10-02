@@ -34,6 +34,11 @@ import { formatAdminDateTime } from "@/lib/admin/users/format";
 import type { AdminUserDetail } from "@/lib/admin/users/types";
 import type { DirectoryOptionCategory } from "@/lib/directory/types";
 import { cn } from "@/lib/utils";
+import {
+  PERSON_NAME_MAX,
+  PERSON_NAME_MIN,
+  validatePersonName,
+} from "@/lib/validators/common";
 
 type UserDetailDialogProps = {
   userId: string | null;
@@ -69,6 +74,57 @@ function nullableEqual(
   const norm = (v: string | null | undefined) =>
     v == null || v.trim() === "" ? null : v.trim();
   return norm(a) === norm(b);
+}
+
+const ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+function validateOptionalId(
+  value: string,
+  label: string,
+): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length < 5) return `${label} must be at least 5 characters`;
+  if (trimmed.length > 32) return `${label} must be at most 32 characters`;
+  if (!ID_PATTERN.test(trimmed)) {
+    return `${label} may only include letters, numbers, _ and -`;
+  }
+  return null;
+}
+
+function validateIdentityForm(input: {
+  name: string;
+  nim: string;
+  nidn: string;
+  title: string;
+  role: AdminUserDetail["role"];
+}): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  const nameError = validatePersonName(input.name);
+  if (nameError) errors.name = nameError;
+
+  const nimError = validateOptionalId(
+    input.nim,
+    input.role === "STUDENT" ? "Student ID" : "BINUSIAN ID",
+  );
+  if (nimError) errors.nim = nimError;
+
+  if (input.role === "LECTURER") {
+    const nidnError = validateOptionalId(input.nidn, "Lecturer ID");
+    if (nidnError) errors.nidn = nidnError;
+  }
+
+  const trimmedTitle = input.title.trim();
+  if (trimmedTitle) {
+    if (trimmedTitle.length < 2) {
+      errors.title = "Title must be at least 2 characters";
+    } else if (trimmedTitle.length > 80) {
+      errors.title = "Title must be at most 80 characters";
+    }
+  }
+
+  return errors;
 }
 
 function ReadOnlyField({
@@ -174,6 +230,7 @@ function UserDetailBody({
   const [semester, setSemester] = useState(nullableField(user.semester));
   const [department, setDepartment] = useState(nullableField(user.department));
   const [title, setTitle] = useState(nullableField(user.title));
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [confirm, setConfirm] = useState<
     null | "save" | "soft-delete" | "restore" | "hard-delete" | "remove-avatar"
@@ -258,6 +315,17 @@ function UserDetailBody({
     setTitle(nullableField(next.title));
   }
 
+  function requestSave() {
+    const errors = validateIdentityForm({ name, nim, nidn, title, role });
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      toast.error(Object.values(errors)[0]);
+      return;
+    }
+    setFieldErrors({});
+    setConfirm("save");
+  }
+
   async function handleSave() {
     const body = buildPatchBody();
     if (Object.keys(body).length === 0) {
@@ -274,6 +342,7 @@ function UserDetailBody({
       );
 
       applyUserToForm(data.user);
+      setFieldErrors({});
       toast.success("User updated");
       onChanged();
       await onRefetch();
@@ -552,11 +621,34 @@ function UserDetailBody({
                 <Input
                   id="admin-user-name"
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    if (fieldErrors.name) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.name;
+                        return next;
+                      });
+                    }
+                  }}
                   placeholder="Full name"
-                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  className={cn(
+                    "rounded-xl border-2 bg-white",
+                    fieldErrors.name
+                      ? "border-red-500 focus-visible:ring-red-500"
+                      : "border-slate-900",
+                  )}
                   autoComplete="off"
                 />
+                {fieldErrors.name ? (
+                  <p className="text-xs text-red-600">{fieldErrors.name}</p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Letters, spaces, and punctuation such as , . &apos; - ( )
+                    are allowed ({PERSON_NAME_MIN}–{PERSON_NAME_MAX} chars).
+                  </p>
+                )}
               </div>
               <DirectorySelectField
                 id="admin-user-campus"
@@ -577,12 +669,29 @@ function UserDetailBody({
                 <Input
                   id="admin-user-binusian-id"
                   value={nim}
-                  onChange={(event) => setNim(event.target.value)}
+                  onChange={(event) => {
+                    setNim(event.target.value);
+                    if (fieldErrors.nim) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.nim;
+                        return next;
+                      });
+                    }
+                  }}
                   placeholder={CLEAR_PLACEHOLDER}
-                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  aria-invalid={Boolean(fieldErrors.nim)}
+                  className={cn(
+                    "rounded-xl border-2 bg-white",
+                    fieldErrors.nim
+                      ? "border-red-500 focus-visible:ring-red-500"
+                      : "border-slate-900",
+                  )}
                   autoComplete="off"
                 />
-                {role === "STUDENT" ? (
+                {fieldErrors.nim ? (
+                  <p className="text-xs text-red-600">{fieldErrors.nim}</p>
+                ) : role === "STUDENT" ? (
                   <p className="text-xs text-slate-500">
                     For students, BINUSIAN ID and NIM are the same identifier.
                   </p>
@@ -603,11 +712,29 @@ function UserDetailBody({
                   <Input
                     id="admin-user-nidn"
                     value={nidn}
-                    onChange={(event) => setNidn(event.target.value)}
+                    onChange={(event) => {
+                      setNidn(event.target.value);
+                      if (fieldErrors.nidn) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.nidn;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder={CLEAR_PLACEHOLDER}
-                    className="rounded-xl border-2 border-slate-900 bg-white"
+                    aria-invalid={Boolean(fieldErrors.nidn)}
+                    className={cn(
+                      "rounded-xl border-2 bg-white",
+                      fieldErrors.nidn
+                        ? "border-red-500 focus-visible:ring-red-500"
+                        : "border-slate-900",
+                    )}
                     autoComplete="off"
                   />
+                  {fieldErrors.nidn ? (
+                    <p className="text-xs text-red-600">{fieldErrors.nidn}</p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -648,11 +775,29 @@ function UserDetailBody({
                 <Input
                   id="admin-user-title"
                   value={title}
-                  onChange={(event) => setTitle(event.target.value)}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                    if (fieldErrors.title) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.title;
+                        return next;
+                      });
+                    }
+                  }}
                   placeholder={CLEAR_PLACEHOLDER}
-                  className="rounded-xl border-2 border-slate-900 bg-white"
+                  aria-invalid={Boolean(fieldErrors.title)}
+                  className={cn(
+                    "rounded-xl border-2 bg-white",
+                    fieldErrors.title
+                      ? "border-red-500 focus-visible:ring-red-500"
+                      : "border-slate-900",
+                  )}
                   autoComplete="off"
                 />
+                {fieldErrors.title ? (
+                  <p className="text-xs text-red-600">{fieldErrors.title}</p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -793,7 +938,7 @@ function UserDetailBody({
               type="button"
               className="bg-inkcuba-cyan shadow-inkcuba hover:bg-sky-600"
               disabled={!dirty}
-              onClick={() => setConfirm("save")}
+              onClick={requestSave}
             >
               Save changes
             </Button>

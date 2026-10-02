@@ -32,6 +32,13 @@ export const workspaceMemberStatusEnum = pgEnum("workspace_member_status", [
   "REMOVED",
 ]);
 
+/** Lecturer-managed lifecycle for a class workspace. Only ACTIVE is open to students. */
+export const workspaceStatusEnum = pgEnum("workspace_status", [
+  "DRAFT",
+  "ACTIVE",
+  "INACTIVE",
+]);
+
 export const directoryOptionCategoryEnum = pgEnum("directory_option_category", [
   "campus",
   "major",
