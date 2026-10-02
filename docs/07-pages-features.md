@@ -74,20 +74,32 @@ Dashboard chrome is **role-aware**:
 
 - Keeps the public marketing chrome (`SiteHeader` / `SiteFooter`) — intentionally **different** from the admin console
 - Desktop: sticky sidebar (`top` below SiteHeader) so Navigate + Account stay visible while scrolling long pages; Account (My Settings) sits directly under Navigate
-- Lecturer Navigate: **Overview**, **Workspaces** (Reviews/Portfolios placeholders removed)
+- Lecturer Navigate: **Overview**, **Workspaces**
+- Student Navigate: **Overview**, **Workspaces**, **Portfolios** (Soon)
 - Mobile: solid overlay drawer; main column always full width
 - Toggle via toolbar icon; desktop preference in `inkcuba.workspace-sidebar-open`
 
-### Lecturer Workspaces (Phase 1)
+### Student Workspaces
+
+- Overview at `/dashboard/student` shows recent joined workspaces + join CTA
+- List at `/dashboard/student/workspaces` — debounced search, page size, pagination
+- Detail at `/dashboard/student/workspaces/[workspaceId]` — banner, description, lecturer card (Active + membership required)
+- Public join gate at `/join?code=…` (no Better Auth `useSession` on SSR):
+  - Guests see a dedicated “sign in to join” landing (workspace preview when code is valid/Active), then `/auth/sign-in?callbackUrl=/join?code=…`
+  - After sign-in, students return to `/join`, auto-join, then land on the workspace detail page (not the generic dashboard)
+  - Non-students see a clear blocked state
+
+### Lecturer Workspaces (Phase 1 + People)
 
 - List + create at `/dashboard/lecturer/workspaces` (+ `/new`)
 - List supports **debounced search**, semester filter, status (`Draft` / `Active` / `Inactive`), sort (name/class/semester/dates), and **pagination** (6/12/24/48); filters collapse behind **Search & filters** on small screens
-- Detail at `/dashboard/lecturer/workspaces/[workspaceId]` with tabs:
+- Detail at `/dashboard/lecturer/workspaces/[workspaceId]` with tabs (`?tab=people|submission|scoring` persists on refresh; Info is default when omitted):
   - **Info** — compact lecturer card + workspace details; edit opens a dialog with confirm-before-save (includes **status** picker)
-  - **People / Submission / Scoring** — Coming Soon placeholders (distinct tab icons)
+  - **People** — invite panel collapses via the chevron only; member list uses **responsive cards on mobile/tablet** and a full table on desktop (Student, Student ID/NIM, Academic Program, Batch, Status, Joined via); debounced search + pagination; Excel template (styled + major/batch dropdowns from Directory Options) → preview/edit → async BullMQ commit with progress bar
+  - **Submission / Scoring** — Coming Soon placeholders
 - Required fields: name, class name, semester (Directory Options). Optional: background ≤10MB, description ≤8000 plain chars (TipTap + images). Status defaults to **Draft** on create so students cannot access until the lecturer sets **Active**
-- Confirm modals for create, update, and delete; SeaweedFS keys under `workspaces/…` stay in sync on replace/delete
-- Student-facing workspace views are deferred; server helpers already deny student access when status is Draft or Inactive
+- Confirm modals for create, update, delete, member remove, and import commit; SeaweedFS keys under `workspaces/…` (including `imports/`) stay in sync on replace/delete
+- Student join: `/join?code=…` + `POST /api/student/workspaces/join` (Active workspaces only). New invited users activate via `/auth/activate`
 
 ### Admin console UX
 

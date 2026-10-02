@@ -139,8 +139,21 @@ Password must satisfy strength rules (upper + lower + number, min 8).
 6. Verified login reaches role dashboard.
 7. Avatar upload appears in SeaweedFS and renders via `/api/media/...`.
 8. Forgot password email arrives and reset works.
-9. Authenticated users cannot open `/auth/*`.
+9. Authenticated users cannot open `/auth/*` (except flows that intentionally redirect).
 10. Guests cannot open `/dashboard/*`.
+11. `npm run worker` (or `npm run dev` which starts web+worker) processes import/email queues.
+12. Production: `npm run build` then `npm run pm2:start` runs `inkcuba-web` + `inkcuba-worker`.
+
+### Dev scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Next.js + BullMQ worker via `concurrently` |
+| `npm run dev:web` | Next.js only |
+| `npm run worker` | BullMQ worker only |
+| `npm run pm2:start` | Production PM2 (web + worker) |
+
+Optional env: `WORKSPACE_IMPORT_MAX_ROWS` (default 2000), `WORKSPACE_IMPORT_CHUNK` (default 50).
 
 ---
 

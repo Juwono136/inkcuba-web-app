@@ -113,7 +113,15 @@ While logged in, you can still use Home / Explore / Courses / Campus Stats from 
 
 ### Student dashboard (`/dashboard/student`)
 
-For student accounts. Currently shows a welcome workspace shell for upcoming portfolio tools.
+For student accounts. Overview shows recent **workspaces** you joined plus shortcuts to open the list or join with a code.
+
+#### Workspaces
+
+1. Open **Workspaces** in the sidebar — search (debounced), change page size, paginate as the list grows.
+2. Open a workspace card to see banner, description, and lecturer info (only **Active** workspaces you belong to).
+3. To join a new class: open the lecturer’s invite link (`/join?code=…`) or use **Join with code**.
+   - If you are not signed in, you see a dedicated gate page asking you to sign in first.
+   - After sign-in you return to the join flow and land **inside that workspace** (not the generic dashboard home).
 
 ### Lecturer dashboard (`/dashboard/lecturer`)
 
@@ -123,9 +131,16 @@ For lecturer accounts. Overview shows a create-workspace CTA and your recent wor
 
 1. Open **Workspaces** → use search, semester/status filters, and sort as the list grows; on mobile, tap **Search & filters** to expand or collapse those controls. Change page size at the bottom.
 2. **Create workspace** — enter **workspace name**, **class name**, and **semester** (from Directory Options). Choose **status** (**Draft** by default, **Active**, or **Inactive**). Optionally upload a background (**recommended 1600 × 480 px**, ≤10MB) and write a rich description. Confirm in the modal before creating.
-3. After create, open the workspace: **Info** shows your lecturer profile + workspace details. **Edit** opens a dialog (including status); confirm before saving. **Delete** also asks for confirmation.
+3. After create, open the workspace: **Info** shows your lecturer profile + workspace details. Tabs stay on refresh via the URL (`?tab=people`). **Edit** opens a dialog (including status); confirm before saving. **Delete** also asks for confirmation.
 4. Only **Active** workspaces can be accessed by students. **Draft** and **Inactive** stay lecturer-only.
-5. **People**, **Submission**, and **Scoring** are Coming Soon.
+5. **People** tab:
+   - Use the **chevron** on Invite students to show/hide link + code (tap the arrow only — the rest of the header does not toggle).
+   - Member table columns: **Student** (name + email), **Student ID / NIM**, **Academic Program**, **Batch**, **Status**, **Joined via**, **Actions**.
+   - **Add students** — search registered students (debounced), multi-select with a live selection count, confirm → invite emails.
+   - **Template** asks for confirmation before download; the Excel file has styled headers, an example row, Instructions + Majors/Batches reference sheets, and Academic Program + Batch dropdowns synced with Admin Directory Options.
+   - **Import Excel** — upload `.xlsx` (upload progress), fix preview errors, then **Commit** (BullMQ chunked ImportJob + progress bar + retryable invite emails).
+   - Member list supports **debounced search**, page size, and pagination.
+6. **Submission** and **Scoring** are Coming Soon.
 
 ### Admin dashboard (`/dashboard/admin`)
 

@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+
 import { WorkspaceDetailClient } from "@/components/lecturer/workspaces/workspace-detail-client";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
 import { requireRole } from "@/lib/auth/require-role";
 
 export const metadata = {
@@ -22,7 +25,15 @@ export default async function LecturerWorkspaceDetailPage({
       description="Workspace details and tools."
       hideHeader
     >
-      <WorkspaceDetailClient workspaceId={workspaceId} />
+      <Suspense
+        fallback={
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <InkcubaLoader label="Loading workspace…" />
+          </div>
+        }
+      >
+        <WorkspaceDetailClient workspaceId={workspaceId} />
+      </Suspense>
     </DashboardShell>
   );
 }

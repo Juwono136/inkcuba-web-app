@@ -13,7 +13,14 @@ export {
   resetPasswordEmailText,
   passwordChangedEmailTemplate,
   passwordChangedEmailText,
+  workspaceInviteExistingTemplate,
+  workspaceInviteExistingText,
+  workspaceInviteRegisteredNoLoginTemplate,
+  workspaceInviteRegisteredNoLoginText,
+  workspaceInviteActivateTemplate,
+  workspaceInviteActivateText,
 } from "@/lib/email/templates";
 export { sendVerificationEmail } from "@/lib/email/services/verification";
 export { sendResetPasswordEmail } from "@/lib/email/services/reset-password";
 export { sendPasswordChangedEmail } from "@/lib/email/services/password-changed";
+export { processInviteEmailOutbox } from "@/lib/email/services/workspace-invite";

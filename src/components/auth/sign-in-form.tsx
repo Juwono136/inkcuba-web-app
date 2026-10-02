@@ -20,13 +20,14 @@ import {
   loadRememberedCredentials,
   saveRememberedCredentials,
 } from "@/lib/auth/remember-credentials";
+import { getSafeInternalPath } from "@/lib/auth/safe-callback";
 import { signInSchema } from "@/lib/validators/auth";
 import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
 
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl = getSafeInternalPath(searchParams.get("callbackUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -48,8 +48,9 @@ Public visitors browse without an account.
 | User menu dropdown | Done | Dashboard, settings, logout + confirm modal |
 | Avatar upload (SeaweedFS) | Done | Upload on form submit only |
 | Media proxy for private storage | Done | `/api/media/[...key]` |
-| Dashboards (student / lecturer / admin) | Partial | Lecturer Workspaces Phase 1 live; student/admin shells remain |
-| Lecturer Workspaces | Done (Phase 1) | Create/edit/list; Info tab; People/Submission/Scoring Coming Soon |
+| Dashboards (student / lecturer / admin) | Partial | Student + lecturer Workspaces live; portfolios Coming Soon |
+| Lecturer Workspaces | Done (Phase 1+People) | Create/edit/list; Info + People (manual add with selection count, Excel template confirm + Directory major sync, invite link/8-char code, member search+pagination); Submission/Scoring Coming Soon |
+| Student Workspaces | Done (join + list/detail) | `/join` gate → sign-in → workspace detail; sidebar Workspaces list with search/pagination |
 | My Settings page | Done | Identity (RO), photo, public profile, password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
 | Admin User Management | Done | List/search/filter; edit role, activation, identity; soft delete + trash; audit writes |
@@ -57,8 +58,9 @@ Public visitors browse without an account.
 | Admin Field Permissions | Done | Per-role My Settings identity edit matrix |
 | Admin user avatars | Done | Upload/replace/remove from User Management with SeaweedFS sync |
 | Health check API | Done | Basic + detailed (token) |
-| Redis rate limiting | Done | Auth + avatar upload |
-| Email templates | Done | Verification + reset + password-changed |
+| Redis rate limiting | Done | Auth + uploads + lecturer/student APIs |
+| Email templates | Done | Verification + reset + password-changed + workspace invites |
+| BullMQ worker + PM2 | Done | Import commit + invite email queues |
 | Logging (Pino) | Done | Redacted secrets |
 
 ### Schema ready / UI not fully built yet
@@ -66,7 +68,7 @@ Public visitors browse without an account.
 | Area | Status | Notes |
 |---|---|---|
 | Student / lecturer profiles | Done | My Settings + admin identity sync |
-| Workspaces (lecturer Phase 1) | Done | Create/edit/list + Info; members/assignments APIs later |
+| Workspaces (lecturer Phase 1+People) | Done | Create/edit/list + Info + People members/import/join |
 | Portfolios / media / reviews | Schema ready | Submission & review workflow planned |
 | Audit logs | Schema ready | Audit helpers exist |
 

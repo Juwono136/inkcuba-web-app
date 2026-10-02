@@ -12,8 +12,15 @@
                ▼               ▼               ▼
          ┌─────────┐    ┌──────────┐    ┌────────────┐
          │  Redis  │    │ SeaweedFS│    │ SMTP/Gmail │
-         │ (rate)  │    │ (media)  │    │ (Nodemailer)│
-         └─────────┘    └──────────┘    └────────────┘
+         │ rate +  │    │ (media)  │    │ (Nodemailer)│
+         │ BullMQ  │    └──────────┘    └────────────┘
+         └────┬────┘
+              │
+              ▼
+     ┌────────────────┐
+     │ PM2 worker     │
+     │ (BullMQ jobs)  │
+     └────────────────┘
 ```
 
 ### Runtime responsibilities
@@ -24,8 +31,10 @@
 | **proxy.ts** | Cookie-based route guards + security headers |
 | **Better Auth** | Sessions, credentials, verification, password reset |
 | **Drizzle + PostgreSQL** | Relational data model |
-| **Redis** | Rate limiting for sensitive auth/upload endpoints |
-| **SeaweedFS** | Object storage for avatars (and future portfolio media) |
+| **Redis** | Rate limiting + BullMQ queues (import commit, invite emails) |
+| **BullMQ worker** | Async Excel import chunks + retryable invite emails (`scripts/workspace-worker.ts`) |
+| **PM2** | Production process manager for web + worker (`ecosystem.config.cjs`) |
+| **SeaweedFS** | Object storage for avatars, workspace media, Excel imports |
 | **Nodemailer** | Transactional email delivery |
 
 ---

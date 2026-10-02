@@ -35,6 +35,12 @@ Defined in `src/db/schema/enums.ts`:
 | `group_assignment_method` | `RANDOM`, `MANUAL`, `SELF_SELECT` |
 | `workspace_status` | `DRAFT`, `ACTIVE`, `INACTIVE` — only `ACTIVE` is open to students |
 | `workspace_member_status` | `INVITED`, `ACTIVE`, `REMOVED` |
+| `workspace_member_source` | `MANUAL`, `EXCEL`, `LINK`, `CODE` |
+| `workspace_import_job_status` | `UPLOADED`, `PARSING`, `READY`, `COMMITTING`, `COMPLETED`, `FAILED`, `CANCELLED` |
+| `workspace_import_item_status` | `PENDING`, `SKIPPED`, `SUCCESS`, `FAILED` |
+| `workspace_invitation_purpose` | `INVITE_EXISTING`, `INVITE_ACTIVATE` |
+| `workspace_email_template` | `INVITE_EXISTING`, `INVITE_REGISTERED_NO_LOGIN`, `INVITE_ACTIVATE` |
+| `workspace_email_outbox_status` | `PENDING`, `SENT`, `FAILED` |
 
 ---
 
@@ -148,15 +154,30 @@ Supports lecturer-managed class workspaces (portfolio verification entry point),
 | `semester` | Required Directory Options **value** (category `semester`) |
 | `description` | Optional sanitized HTML (rich text + images), plain-text max 8000 |
 | `background_image_key` / `background_image_url` | Optional SeaweedFS background (null → brand gradient default in UI) |
-| `invite_code` | Unique code reserved for future People join flows |
+| `invite_code` | Unique join code: exactly **8** chars, lowercase letters + digits only (`[a-z0-9]{8}`); legacy codes are migrated on lecturer detail load |
 | `lecturer_id` | Owner (cascade on user delete) |
 | `status` | `DRAFT` \| `ACTIVE` \| `INACTIVE` (default `DRAFT` on create). Students may access only `ACTIVE`. |
 
-Unique on `(lecturer_id, name, class_name, semester)`. Index on `status`. Migrations: `0009_workspace_product_fields`, `0010_workspace_status`.
+Unique on `(lecturer_id, name, class_name, semester)`. Index on `status`. Migrations: `0009_workspace_product_fields`, `0010_workspace_status`, `0011_workspace_people`.
 
-Also present (unused in Phase 1 UI): `workspace_member`, `assignment`, `assignment_group`, `assignment_group_member`.
+### `workspace_member` (People tab)
 
-> Lecturer APIs/UI for create · edit · delete · Info tab are live. People / Submission / Scoring tabs are Coming Soon placeholders. Student workspace access helpers (`assertStudentCanAccessWorkspace*`) enforce Active-only; student UI is planned next.
+| Column | Notes |
+|---|---|
+| `user_id` | Student user FK; unique per `(workspace_id, user_id)` |
+| `status` | `INVITED` \| `ACTIVE` \| `REMOVED` |
+| `source` | `MANUAL` \| `EXCEL` \| `LINK` \| `CODE` |
+| `invited_by` / `invited_at` / `joined_at` / `removed_at` | Lifecycle timestamps |
+
+### Import & invite support tables
+
+- `workspace_import_job` / `workspace_import_job_item` — Excel upload → preview → async BullMQ commit
+- `workspace_invitation_token` — hashed activation tokens for new students (no plaintext passwords)
+- `workspace_email_outbox` — invite email audit + retry visibility
+
+Also present (future): `assignment`, `assignment_group`, `assignment_group_member`.
+
+> Lecturer People tab is live (manual add, Excel import, invite link/code). Submission / Scoring remain Coming Soon. Student join via `/join` + `POST /api/student/workspaces/join`.
 
 ---
 
@@ -187,6 +208,7 @@ Audit log table for security/operational events. Helpers live under `src/lib/aud
 | `0008_role_field_permissions.sql` | Role field permission matrix |
 | `0009_workspace_product_fields.sql` | Workspace name/class/semester/background reshape |
 | `0010_workspace_status.sql` | Replace `is_active` with `workspace_status` enum (`DRAFT`/`ACTIVE`/`INACTIVE`) |
+| `0011_workspace_people.sql` | People tab: member source fields, import jobs/items, invitation tokens, email outbox |
 
 Migration journal: `drizzle/meta/_journal.json`.
 

@@ -39,6 +39,50 @@ export const workspaceStatusEnum = pgEnum("workspace_status", [
   "INACTIVE",
 ]);
 
+export const workspaceMemberSourceEnum = pgEnum("workspace_member_source", [
+  "MANUAL",
+  "EXCEL",
+  "LINK",
+  "CODE",
+]);
+
+export const workspaceImportJobStatusEnum = pgEnum(
+  "workspace_import_job_status",
+  [
+    "UPLOADED",
+    "PARSING",
+    "READY",
+    "COMMITTING",
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+  ],
+);
+
+export const workspaceImportItemStatusEnum = pgEnum(
+  "workspace_import_item_status",
+  ["PENDING", "SKIPPED", "SUCCESS", "FAILED"],
+);
+
+export const workspaceInvitationPurposeEnum = pgEnum(
+  "workspace_invitation_purpose",
+  ["INVITE_EXISTING", "INVITE_ACTIVATE"],
+);
+
+export const workspaceEmailOutboxStatusEnum = pgEnum(
+  "workspace_email_outbox_status",
+  ["PENDING", "SENT", "FAILED"],
+);
+
+export const workspaceEmailTemplateEnum = pgEnum(
+  "workspace_email_template",
+  [
+    "INVITE_EXISTING",
+    "INVITE_REGISTERED_NO_LOGIN",
+    "INVITE_ACTIVATE",
+  ],
+);
+
 export const directoryOptionCategoryEnum = pgEnum("directory_option_category", [
   "campus",
   "major",

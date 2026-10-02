@@ -290,6 +290,31 @@ Upload an image for TipTap description inserts. Returns `{ key, url }` (`/api/me
 
 Same as above for create-form drafts under `workspaces/tmp/{lecturerId}/`.
 
+### People / members
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/lecturer/workspaces/[id]/members` | Paginated members (`q`, `page`, `pageSize`); server-side search |
+| GET | `.../members/candidates` | Debounced student search (excludes current members) |
+| POST | `.../members` | Body `{ userIds[] }` — manual invite batch (max 50); emails queued |
+| DELETE | `.../members/[memberId]` | Soft-remove (`REMOVED`) |
+| GET | `.../members/template` | Download styled `.xlsx` (Student Name, Student ID / NIM, Student Email, Academic Program, Batch); live Directory majors + batch dropdowns + Instructions/reference sheets |
+| POST | `.../members/import` | Multipart `file` → parse + preview job (SeaweedFS `workspaces/{id}/imports/`) |
+| GET | `.../members/import/[jobId]` | Job status + paginated preview items |
+| PATCH | `.../members/import/[jobId]/items/[itemId]` | Edit preview row (revalidates major/email/NIM) |
+| POST | `.../members/import/[jobId]/commit` | Idempotent async commit via BullMQ (`Idempotency-Key` header) |
+
+### Student join
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/student/workspaces` | Paginated joined workspaces (`q`, `page`, `pageSize`) |
+| GET | `/api/student/workspaces/[id]` | Membership + Active gate; INVITED → ACTIVE on first open |
+| POST | `/api/student/workspaces/join` | Body `{ code }` — code must be `[a-z0-9]{8}` (normalized lowercase); Active workspace only; idempotent |
+| POST | `/api/auth/activate` | Body `{ token, password, confirmPassword }` — new invitees create password |
+
+Public page `/join` is a server-rendered gate (guests) / join client (students). Post-login `callbackUrl` is validated with `getSafeInternalPath` (open-redirect safe).
+
 ---
 
 ## Standard API envelope

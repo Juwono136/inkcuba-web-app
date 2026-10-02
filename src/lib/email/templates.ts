@@ -132,3 +132,128 @@ Other active sessions on your account have been signed out. If you did not make 
 
 — ${siteConfig.name}`;
 }
+
+type WorkspaceInviteEmailInput = {
+  studentName: string;
+  workspaceName: string;
+  lecturerName: string;
+  className: string;
+  semesterLabel: string;
+  ctaUrl: string;
+};
+
+export function workspaceInviteExistingTemplate(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return buildEmailLayout({
+    preheader: `You have been invited to workspace ${input.workspaceName}.`,
+    title: "Workspace invitation",
+    body: `
+      <p style="margin:0 0 16px;">Hello <strong>${escapeHtml(input.studentName)}</strong>,</p>
+      <p style="margin:0 0 16px;">
+        You have been invited to the workspace
+        <strong>${escapeHtml(input.workspaceName)}</strong>
+        (${escapeHtml(input.className)} · ${escapeHtml(input.semesterLabel)})
+        by <strong>${escapeHtml(input.lecturerName)}</strong> on ${escapeHtml(siteConfig.name)}.
+      </p>
+      <p style="margin:0;font-size:14px;color:#64748B;">
+        Sign in to your dashboard to open the workspace and start submitting portfolios when submission cards are available.
+      </p>
+    `,
+    ctaLabel: "Open dashboard",
+    ctaUrl: input.ctaUrl,
+    footerNote: "If you were not expecting this invitation, you can ignore this email.",
+  });
+}
+
+export function workspaceInviteExistingText(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return `Hello ${input.studentName},
+
+You have been invited to workspace "${input.workspaceName}" (${input.className} · ${input.semesterLabel}) by ${input.lecturerName} on ${siteConfig.name}.
+
+Open your dashboard: ${input.ctaUrl}
+
+— ${siteConfig.name}`;
+}
+
+export function workspaceInviteRegisteredNoLoginTemplate(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return buildEmailLayout({
+    preheader: `Activate your account to join workspace ${input.workspaceName}.`,
+    title: "Workspace invitation — set your password",
+    body: `
+      <p style="margin:0 0 16px;">Hello <strong>${escapeHtml(input.studentName)}</strong>,</p>
+      <p style="margin:0 0 16px;">
+        You have been invited to
+        <strong>${escapeHtml(input.workspaceName)}</strong>
+        (${escapeHtml(input.className)} · ${escapeHtml(input.semesterLabel)})
+        by <strong>${escapeHtml(input.lecturerName)}</strong>.
+      </p>
+      <p style="margin:0 0 16px;">
+        Your account already exists on ${escapeHtml(siteConfig.name)}, but you have not signed in yet.
+        Please set or reset your password first, then open the dashboard to access the workspace.
+      </p>
+    `,
+    ctaLabel: "Set / reset password",
+    ctaUrl: input.ctaUrl,
+    footerNote: "After setting your password, sign in to access the invited workspace.",
+  });
+}
+
+export function workspaceInviteRegisteredNoLoginText(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return `Hello ${input.studentName},
+
+You have been invited to workspace "${input.workspaceName}" (${input.className} · ${input.semesterLabel}) by ${input.lecturerName}.
+
+Your account exists but you have not signed in yet. Set or reset your password here:
+${input.ctaUrl}
+
+— ${siteConfig.name}`;
+}
+
+export function workspaceInviteActivateTemplate(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return buildEmailLayout({
+    preheader: `Activate your inkcuba account for workspace ${input.workspaceName}.`,
+    title: "Activate your account",
+    body: `
+      <p style="margin:0 0 16px;">Hello <strong>${escapeHtml(input.studentName)}</strong>,</p>
+      <p style="margin:0 0 16px;">
+        You have been invited to the workspace
+        <strong>${escapeHtml(input.workspaceName)}</strong>
+        (${escapeHtml(input.className)} · ${escapeHtml(input.semesterLabel)})
+        by <strong>${escapeHtml(input.lecturerName)}</strong>.
+      </p>
+      <p style="margin:0 0 16px;">
+        An account was created for you on ${escapeHtml(siteConfig.name)}.
+        Please <strong>activate your account and create a password</strong> before accessing the dashboard or the workspace.
+      </p>
+    `,
+    ctaLabel: "Activate & create password",
+    ctaUrl: input.ctaUrl,
+    footerNote:
+      "This activation link expires in 7 days. Do not share it with anyone.",
+  });
+}
+
+export function workspaceInviteActivateText(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return `Hello ${input.studentName},
+
+You have been invited to workspace "${input.workspaceName}" (${input.className} · ${input.semesterLabel}) by ${input.lecturerName}.
+
+An account was created for you. Activate your account and create a password:
+${input.ctaUrl}
+
+This link expires in 7 days.
+
+— ${siteConfig.name}`;
+}
+

@@ -1,5 +1,3 @@
-import "server-only";
-
 import { z } from "zod";
 
 const logLevels = ["debug", "info", "warn", "error"] as const;
@@ -35,6 +33,8 @@ const serverEnvSchema = z.object({
   HEALTH_CHECK_TOKEN: z
     .string()
     .min(16, "HEALTH_CHECK_TOKEN must be at least 16 characters"),
+  WORKSPACE_IMPORT_MAX_ROWS: z.coerce.number().int().positive().default(2000),
+  WORKSPACE_IMPORT_CHUNK: z.coerce.number().int().positive().default(50),
 });
 
 function parseEnv<T extends z.ZodType>(
@@ -76,6 +76,8 @@ export function getServerEnv() {
       PASSWORD_STORAGE: process.env.PASSWORD_STORAGE,
       LOG_LEVEL: process.env.LOG_LEVEL,
       HEALTH_CHECK_TOKEN: process.env.HEALTH_CHECK_TOKEN,
+      WORKSPACE_IMPORT_MAX_ROWS: process.env.WORKSPACE_IMPORT_MAX_ROWS,
+      WORKSPACE_IMPORT_CHUNK: process.env.WORKSPACE_IMPORT_CHUNK,
     });
   }
 

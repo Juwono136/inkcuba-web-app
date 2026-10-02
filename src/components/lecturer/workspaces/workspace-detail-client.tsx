@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ import {
   WorkspaceForm,
   type WorkspaceFormValues,
 } from "@/components/lecturer/workspaces/workspace-form";
+import { WorkspacePeopleTab } from "@/components/lecturer/workspaces/people/workspace-people-tab";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -45,6 +46,15 @@ type ApiEnvelope<T> =
   | { success: false; error: { message: string } };
 
 type TabId = "info" | "people" | "submission" | "scoring";
+
+const TAB_IDS: TabId[] = ["info", "people", "submission", "scoring"];
+
+function parseTabId(value: string | null | undefined): TabId {
+  if (value && TAB_IDS.includes(value as TabId)) {
+    return value as TabId;
+  }
+  return "info";
+}
 
 type PendingSave = {
   values: WorkspaceFormValues;
@@ -91,14 +101,27 @@ export function WorkspaceDetailClient({
   workspaceId: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const setActiveWorkspaceId = useUiStore((s) => s.setActiveWorkspaceId);
-  const [tab, setTab] = useState<TabId>("info");
+  const tab = parseTabId(searchParams.get("tab"));
   const [editOpen, setEditOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
+
+  function setTab(next: TabId) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "info") {
+      params.delete("tab");
+    } else {
+      params.set("tab", next);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const query = useQuery({
     queryKey: ["lecturer-workspace", workspaceId],
@@ -406,9 +429,10 @@ export function WorkspaceDetailClient({
         ) : null}
 
         {tab === "people" ? (
-          <ComingSoonPanel
-            title="People"
-            description="Soon you’ll add students in bulk via Excel or one-by-one. A student list is required before submissions can start."
+          <WorkspacePeopleTab
+            workspaceId={workspaceId}
+            inviteCode={workspace.inviteCode}
+            workspaceStatus={workspace.status}
           />
         ) : null}
         {tab === "submission" ? (

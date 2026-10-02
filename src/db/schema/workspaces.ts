@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -12,6 +13,12 @@ import { user } from "@/db/schema/auth";
 import {
   assignmentTypeEnum,
   groupAssignmentMethodEnum,
+  workspaceEmailOutboxStatusEnum,
+  workspaceEmailTemplateEnum,
+  workspaceImportItemStatusEnum,
+  workspaceImportJobStatusEnum,
+  workspaceInvitationPurposeEnum,
+  workspaceMemberSourceEnum,
   workspaceMemberStatusEnum,
   workspaceStatusEnum,
 } from "@/db/schema/enums";
@@ -61,7 +68,13 @@ export const workspaceMember = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     status: workspaceMemberStatusEnum("status").default("INVITED").notNull(),
+    source: workspaceMemberSourceEnum("source").default("MANUAL").notNull(),
+    invitedBy: text("invited_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    invitedAt: timestamp("invited_at"),
     joinedAt: timestamp("joined_at"),
+    removedAt: timestamp("removed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -71,10 +84,166 @@ export const workspaceMember = pgTable(
   (table) => [
     index("workspace_member_workspace_id_idx").on(table.workspaceId),
     index("workspace_member_user_id_idx").on(table.userId),
+    index("workspace_member_status_idx").on(table.status),
     uniqueIndex("workspace_member_unique_idx").on(
       table.workspaceId,
       table.userId,
     ),
+  ],
+);
+
+export type WorkspaceImportItemPayload = {
+  name: string;
+  nim: string;
+  email: string;
+  majorLabel: string;
+  majorValue: string | null;
+  batchLabel: string;
+  batchValue: string | null;
+};
+
+export type WorkspaceImportItemValidation = {
+  errors: string[];
+  warnings: string[];
+  matchType:
+    | "EXISTING_USER"
+    | "NEW_USER"
+    | "DUPLICATE_ROW"
+    | "ALREADY_MEMBER"
+    | "INVALID";
+};
+
+export const workspaceImportJob = pgTable(
+  "workspace_import_job",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    lecturerId: text("lecturer_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: workspaceImportJobStatusEnum("status")
+      .default("UPLOADED")
+      .notNull(),
+    fileKey: text("file_key"),
+    fileName: text("file_name"),
+    fileSha256: text("file_sha256"),
+    rowCount: integer("row_count").default(0).notNull(),
+    validCount: integer("valid_count").default(0).notNull(),
+    errorCount: integer("error_count").default(0).notNull(),
+    processedCount: integer("processed_count").default(0).notNull(),
+    idempotencyKey: text("idempotency_key"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    committedAt: timestamp("committed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("workspace_import_job_workspace_id_idx").on(table.workspaceId),
+    index("workspace_import_job_lecturer_id_idx").on(table.lecturerId),
+    index("workspace_import_job_status_idx").on(table.status),
+    uniqueIndex("workspace_import_job_idempotency_idx").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+  ],
+);
+
+export const workspaceImportJobItem = pgTable(
+  "workspace_import_job_item",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => workspaceImportJob.id, { onDelete: "cascade" }),
+    rowIndex: integer("row_index").notNull(),
+    payload: jsonb("payload").$type<WorkspaceImportItemPayload>().notNull(),
+    validation: jsonb("validation")
+      .$type<WorkspaceImportItemValidation>()
+      .notNull(),
+    resolvedUserId: text("resolved_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    status: workspaceImportItemStatusEnum("status")
+      .default("PENDING")
+      .notNull(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("workspace_import_job_item_job_id_idx").on(table.jobId),
+    uniqueIndex("workspace_import_job_item_row_idx").on(
+      table.jobId,
+      table.rowIndex,
+    ),
+  ],
+);
+
+export const workspaceInvitationToken = pgTable(
+  "workspace_invitation_token",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    memberId: text("member_id").references(() => workspaceMember.id, {
+      onDelete: "set null",
+    }),
+    tokenHash: text("token_hash").notNull(),
+    purpose: workspaceInvitationPurposeEnum("purpose").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("workspace_invitation_token_hash_idx").on(table.tokenHash),
+    index("workspace_invitation_token_user_idx").on(table.userId),
+    index("workspace_invitation_token_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+export const workspaceEmailOutbox = pgTable(
+  "workspace_email_outbox",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id").references(() => workspaceImportJob.id, {
+      onDelete: "set null",
+    }),
+    memberId: text("member_id").references(() => workspaceMember.id, {
+      onDelete: "set null",
+    }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    recipient: text("recipient").notNull(),
+    template: workspaceEmailTemplateEnum("template").notNull(),
+    status: workspaceEmailOutboxStatusEnum("status")
+      .default("PENDING")
+      .notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("workspace_email_outbox_workspace_id_idx").on(table.workspaceId),
+    index("workspace_email_outbox_status_idx").on(table.status),
   ],
 );
 

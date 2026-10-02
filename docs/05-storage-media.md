@@ -81,6 +81,7 @@ Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `wo
 | Background | `workspaces/{workspaceId}/background/` | **10MB** | JPG/PNG/WebP/HEIC; recommended **1600×480 px** (≈10:3 landscape); replace = upload → DB → delete previous |
 | Description images | `workspaces/{workspaceId}/description/` | **5MB** | TipTap inserts; orphans removed on description update/delete |
 | Create-time drafts | `workspaces/tmp/{lecturerId}/` | **5MB** | Used while creating a workspace before an id exists |
+| People Excel imports | `workspaces/{workspaceId}/imports/{jobId}/source.xlsx` | **5MB** | Deleted after successful commit; cancelled jobs cleaned on next upload |
 
 Default background in UI (no storage object): brand gradient + inkcuba logo.
 

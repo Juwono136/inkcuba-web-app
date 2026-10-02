@@ -1,7 +1,6 @@
 import "server-only";
 
 import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
-import { randomBytes } from "crypto";
 
 import { db } from "@/db";
 import { user as userTable } from "@/db/schema/auth";
@@ -17,6 +16,8 @@ import {
 } from "@/lib/api/errors";
 import { assertDirectoryValue, resolveDirectoryLabels } from "@/lib/directory/service";
 import { logger } from "@/lib/logger";
+import { generateWorkspaceInviteCode } from "@/lib/workspaces/invite-code";
+import { isValidWorkspaceInviteCode } from "@/lib/workspaces/members/types";
 import {
   assertWorkspaceDescriptionLength,
   extractDescriptionImageKeys,
@@ -51,7 +52,37 @@ import {
 } from "@/lib/workspaces/types";
 
 function generateInviteCode(): string {
-  return randomBytes(8).toString("base64url").slice(0, 12);
+  return generateWorkspaceInviteCode();
+}
+
+async function ensureModernInviteCode(
+  row: typeof workspace.$inferSelect,
+): Promise<typeof workspace.$inferSelect> {
+  if (isValidWorkspaceInviteCode(row.inviteCode)) {
+    return row;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const nextCode = generateInviteCode();
+    try {
+      await db
+        .update(workspace)
+        .set({ inviteCode: nextCode })
+        .where(eq(workspace.id, row.id));
+      return { ...row, inviteCode: nextCode };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        message.includes("workspace_invite_code") ||
+        message.includes("invite_code")
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return row;
 }
 
 function emptyOrNull(value: string | null | undefined): string | null {
@@ -212,8 +243,12 @@ export async function assertStudentCanAccessWorkspace(
 export async function assertStudentCanAccessWorkspaceByInviteCode(
   inviteCode: string,
 ): Promise<typeof workspace.$inferSelect> {
-  const code = inviteCode.trim();
-  if (!code) throw new ValidationError("Invite code is required");
+  const code = inviteCode.trim().toLowerCase();
+  if (!isValidWorkspaceInviteCode(code)) {
+    throw new ValidationError(
+      "Invite code must be exactly 8 lowercase letters or digits",
+    );
+  }
 
   const rows = await db
     .select()
@@ -376,7 +411,9 @@ export async function getLecturerWorkspaceDetail(input: {
   workspaceId: string;
   lecturerId: string;
 }): Promise<WorkspaceDetail> {
-  const row = await loadOwnedWorkspace(input.workspaceId, input.lecturerId);
+  const row = await ensureModernInviteCode(
+    await loadOwnedWorkspace(input.workspaceId, input.lecturerId),
+  );
   const semesterLabel = await resolveSemesterLabel(row.semester);
   const lecturer = await loadLecturerInfo(input.lecturerId);
 

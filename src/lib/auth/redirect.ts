@@ -31,6 +31,9 @@ export function isDashboardRoute(pathname: string): boolean {
 
 /** Auth pages that logged-in users must not access */
 export function isGuestOnlyAuthRoute(pathname: string): boolean {
+  // Activation must stay available even if a stale session cookie exists;
+  // still treat other /auth pages as guest-only.
+  if (pathname.startsWith("/auth/activate")) return false;
   return isAuthRoute(pathname);
 }
 

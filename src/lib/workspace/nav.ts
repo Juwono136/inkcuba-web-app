@@ -49,6 +49,11 @@ export function getWorkspacePrimaryNav(
       exact: true,
     },
     {
+      href: "/dashboard/student/workspaces",
+      label: "Workspaces",
+      icon: "workspaces",
+    },
+    {
       href: "/dashboard/student/portfolios",
       label: "Portfolios",
       icon: "portfolios",
@@ -104,6 +109,21 @@ export function getWorkspaceBreadcrumbs(
       /^\/dashboard\/lecturer\/workspaces\/([^/]+)/,
     );
     if (detailMatch?.[1] && detailMatch[1] !== "new") {
+      crumbs.push({ label: "Details" });
+    }
+    return crumbs;
+  }
+
+  if (pathname.startsWith("/dashboard/student/workspaces")) {
+    crumbs.push({
+      label: "Workspaces",
+      href: "/dashboard/student/workspaces",
+    });
+
+    const detailMatch = pathname.match(
+      /^\/dashboard\/student\/workspaces\/([^/]+)/,
+    );
+    if (detailMatch?.[1]) {
       crumbs.push({ label: "Details" });
     }
     return crumbs;
