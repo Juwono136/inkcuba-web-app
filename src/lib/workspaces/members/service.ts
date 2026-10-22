@@ -49,7 +49,7 @@ async function loadOwnedWorkspace(
     .where(eq(workspace.id, workspaceId))
     .limit(1);
   const row = rows[0];
-  if (!row) throw new NotFoundError("Workspace not found");
+  if (!row || row.deletedAt) throw new NotFoundError("Workspace not found");
   if (row.lecturerId !== lecturerId) {
     throw new ForbiddenError("You do not own this workspace");
   }
@@ -289,7 +289,11 @@ export async function createInvitationOutbox(input: {
   memberId: string;
   userId: string;
   recipient: string;
-  template: "INVITE_EXISTING" | "INVITE_REGISTERED_NO_LOGIN" | "INVITE_ACTIVATE";
+  template:
+    | "INVITE_EXISTING"
+    | "INVITE_REGISTERED_NO_LOGIN"
+    | "INVITE_ACTIVATE"
+    | "WORKSPACE_JOINED";
   jobId?: string | null;
   activationUrl?: string | null;
   workspaceName: string;
@@ -553,7 +557,7 @@ export async function joinWorkspaceByCode(input: {
     .limit(1);
 
   const ws = rows[0];
-  if (!ws) throw new NotFoundError("Invalid invite code");
+  if (!ws || ws.deletedAt) throw new NotFoundError("Invalid invite code");
   if (ws.status !== "ACTIVE") {
     throw new ForbiddenError(
       ws.status === "DRAFT"
@@ -575,7 +579,8 @@ export async function joinWorkspaceByCode(input: {
     )
     .limit(1);
 
-  if (!studentRows[0]) {
+  const student = studentRows[0];
+  if (!student) {
     throw new ForbiddenError("Only active students can join a workspace");
   }
 
@@ -592,6 +597,9 @@ export async function joinWorkspaceByCode(input: {
 
   const source: WorkspaceMemberSource = input.data.source;
   const now = new Date();
+  let memberId = existing[0]?.id ?? null;
+  let alreadyMember = false;
+  let shouldNotify = false;
 
   if (existing[0] && existing[0].status !== "REMOVED") {
     if (existing[0].status === "INVITED") {
@@ -603,11 +611,12 @@ export async function joinWorkspaceByCode(input: {
           source,
         })
         .where(eq(workspaceMember.id, existing[0].id));
+      shouldNotify = true;
+    } else {
+      alreadyMember = true;
     }
-    return { workspaceId: ws.id, alreadyMember: true };
-  }
-
-  if (existing[0]?.status === "REMOVED") {
+    memberId = existing[0].id;
+  } else if (existing[0]?.status === "REMOVED") {
     await db
       .update(workspaceMember)
       .set({
@@ -618,9 +627,12 @@ export async function joinWorkspaceByCode(input: {
         invitedAt: now,
       })
       .where(eq(workspaceMember.id, existing[0].id));
+    memberId = existing[0].id;
+    shouldNotify = true;
   } else {
+    memberId = crypto.randomUUID();
     await db.insert(workspaceMember).values({
-      id: crypto.randomUUID(),
+      id: memberId,
       workspaceId: ws.id,
       userId: input.studentId,
       status: "ACTIVE",
@@ -628,6 +640,36 @@ export async function joinWorkspaceByCode(input: {
       invitedAt: now,
       joinedAt: now,
     });
+    shouldNotify = true;
+  }
+
+  if (shouldNotify && memberId) {
+    const lecturerName = await loadLecturerName(ws.lecturerId);
+    const semesterLabels = await resolveDirectoryLabels([
+      { category: "semester", value: ws.semester },
+    ]);
+    try {
+      const appUrl =
+        process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ||
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+        "";
+      await createInvitationOutbox({
+        workspaceId: ws.id,
+        memberId,
+        userId: student.id,
+        recipient: student.email,
+        template: "WORKSPACE_JOINED",
+        workspaceName: ws.name,
+        lecturerName,
+        className: ws.className,
+        semesterLabel: semesterLabels.semester ?? ws.semester,
+        activationUrl: appUrl
+          ? `${appUrl}/dashboard/student/workspaces/${ws.id}`
+          : null,
+      });
+    } catch {
+      // Join must succeed even if email queueing fails.
+    }
   }
 
   await createAuditLog({
@@ -635,12 +677,12 @@ export async function joinWorkspaceByCode(input: {
     action: "workspace_member.join",
     entityType: "workspace",
     entityId: ws.id,
-    metadata: { source },
+    metadata: { source, notified: shouldNotify },
     ipAddress: input.ipAddress,
     userAgent: input.userAgent,
   });
 
-  return { workspaceId: ws.id, alreadyMember: false };
+  return { workspaceId: ws.id, alreadyMember };
 }
 
 export { loadOwnedWorkspace, userHasLoggedIn, loadLecturerName };

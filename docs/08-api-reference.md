@@ -278,6 +278,19 @@ Create workspace. Accepts JSON or `multipart/form-data` with fields `name`, `cla
 
 Owner-only detail / update / hard delete. PATCH body: `name?`, `className?`, `semester?`, `description?`, `status?`. **Students may access a workspace only when `status === ACTIVE`** (enforced by `assertStudentCanAccessWorkspace` / `assertStudentCanAccessWorkspaceByInviteCode` for future student routes). Delete removes SeaweedFS background + description images. Audited as `workspace.update` / `workspace.delete`.
 
+### `DELETE /api/lecturer/workspaces/[workspaceId]`
+
+Soft-delete (default): body `{ confirmName }` must match the workspace name exactly → sets `deleted_at` and status `INACTIVE`.  
+Hard-delete: `?hard=true` + `{ confirmName }` — only for workspaces already in trash; removes DB row + SeaweedFS assets.
+
+### `POST /api/lecturer/workspaces/[workspaceId]/restore`
+
+Restore from trash (`deleted_at` cleared). Workspace stays **Inactive** until the lecturer sets Active again.
+
+### `GET /api/lecturer/workspaces?trash=true`
+
+Paginated trash list for the current lecturer (includes `daysUntilPurge`).
+
 ### `POST|DELETE /api/lecturer/workspaces/[workspaceId]/background`
 
 Replace or clear background (multipart `file` on POST). Upload → DB → delete previous key.
@@ -304,16 +317,24 @@ Same as above for create-form drafts under `workspaces/tmp/{lecturerId}/`.
 | PATCH | `.../members/import/[jobId]/items/[itemId]` | Edit preview row (revalidates major/email/NIM) |
 | POST | `.../members/import/[jobId]/commit` | Idempotent async commit via BullMQ (`Idempotency-Key` header) |
 
-### Student join
+### Student join & workspace detail
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/student/workspaces` | Paginated joined workspaces (`q`, `page`, `pageSize`) |
-| GET | `/api/student/workspaces/[id]` | Membership + Active gate; INVITED → ACTIVE on first open |
+| GET | `/api/student/workspaces` | Paginated joined workspaces (`q`, `semester`, `className`, `page`, `pageSize`); response includes `facets` for filter dropdowns |
+| GET | `/api/student/workspaces/[id]` | Membership + Active gate; INVITED → ACTIVE on first open; includes lecturer labels + member count |
+| GET | `/api/student/workspaces/[id]/people` | Read-only member list (`q`, `page`, `pageSize`, `status`); membership required; no mutate endpoints |
 | POST | `/api/student/workspaces/join` | Body `{ code }` — code must be `[a-z0-9]{8}` (normalized lowercase); Active workspace only; idempotent |
 | POST | `/api/auth/activate` | Body `{ token, password, confirmPassword }` — new invitees create password |
 
 Public page `/join` is a server-rendered gate (guests) / join client (students). Post-login `callbackUrl` is validated with `getSafeInternalPath` (open-redirect safe).
+
+### Public profiles
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/public/profiles/[identifier]` | Unauthenticated; BINUSIAN ID (`user.nim`) or user id; rate limited; no email/NIDN |
+| Page | `/u/[identifier]` | Public SiteHeader/Footer showcase (`max-w-7xl`); Skills above About; share actions in header only |
 
 ---
 

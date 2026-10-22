@@ -24,6 +24,7 @@ import {
 import { WorkspacePeopleTab } from "@/components/lecturer/workspaces/people/workspace-people-tab";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TypedConfirmDialog } from "@/components/ui/typed-confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -201,18 +202,29 @@ export function WorkspaceDetailClient({
     }
   }
 
-  async function handleDelete() {
+  async function handleSoftDelete() {
+    const confirmName = query.data?.name?.trim() ?? "";
+    if (!confirmName) {
+      toast.error("Workspace name is unavailable");
+      throw new Error("Workspace name is unavailable");
+    }
+
     const response = await fetch(`/api/lecturer/workspaces/${workspaceId}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmName }),
     });
-    const payload = (await response.json()) as ApiEnvelope<{ deleted: boolean }>;
+    const payload = (await response.json()) as ApiEnvelope<{
+      deleted: boolean;
+      hard?: boolean;
+    }>;
     if (!payload.success) {
-      toast.error(payload.error?.message || "Failed to delete workspace");
+      toast.error(payload.error?.message || "Failed to move workspace to trash");
       throw new Error(payload.error?.message || "Delete failed");
     }
-    toast.success("Workspace deleted");
+    toast.success("Workspace moved to trash");
     await queryClient.invalidateQueries({ queryKey: ["lecturer-workspaces"] });
-    router.push("/dashboard/lecturer/workspaces");
+    router.push("/dashboard/lecturer/workspaces/trash");
   }
 
   if (query.isLoading) {
@@ -509,14 +521,16 @@ export function WorkspaceDetailClient({
         }}
       />
 
-      <ConfirmDialog
+      <TypedConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Delete this workspace?"
-        description="This permanently deletes the workspace and its background/description images from storage. This cannot be undone."
-        confirmLabel="Delete workspace"
+        title="Move workspace to trash?"
+        description="The workspace will be soft-deleted and closed to students (Inactive in trash). You can restore it or permanently delete it from Trash within 30 days. After 30 days it is removed automatically."
+        confirmPhrase={workspace?.name ?? ""}
+        confirmPhraseLabel="Type the workspace name to confirm"
+        confirmLabel="Move to trash"
         variant="destructive"
-        onConfirm={handleDelete}
+        onConfirm={handleSoftDelete}
       />
     </div>
   );

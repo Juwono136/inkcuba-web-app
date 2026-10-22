@@ -1,6 +1,19 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  type SQL,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import { user as userTable } from "@/db/schema/auth";
@@ -16,6 +29,11 @@ import {
 } from "@/lib/api/errors";
 import { assertDirectoryValue, resolveDirectoryLabels } from "@/lib/directory/service";
 import { logger } from "@/lib/logger";
+import {
+  resolveMediaUrl,
+  rewriteStorageUrlsInHtml,
+} from "@/lib/media/resolve-media-url";
+import { WORKSPACE_SOFT_DELETE_RETENTION_DAYS } from "@/lib/workspaces/constants";
 import { generateWorkspaceInviteCode } from "@/lib/workspaces/invite-code";
 import { isValidWorkspaceInviteCode } from "@/lib/workspaces/members/types";
 import {
@@ -91,10 +109,29 @@ function emptyOrNull(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function retentionCutoff(days = WORKSPACE_SOFT_DELETE_RETENTION_DAYS): Date {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+function daysUntilPurge(deletedAt: Date | null): number | null {
+  if (!deletedAt) return null;
+  const expiresAt =
+    deletedAt.getTime() +
+    WORKSPACE_SOFT_DELETE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 function mapWorkspaceRow(
   row: typeof workspace.$inferSelect,
   semesterLabel: string,
 ): WorkspaceRecord {
+  const deletedAt =
+    row.deletedAt instanceof Date
+      ? row.deletedAt
+      : row.deletedAt
+        ? new Date(row.deletedAt)
+        : null;
+
   return {
     id: row.id,
     lecturerId: row.lecturerId,
@@ -102,13 +139,15 @@ function mapWorkspaceRow(
     className: row.className,
     semester: row.semester,
     semesterLabel,
-    description: row.description,
+    description: rewriteStorageUrlsInHtml(row.description),
     backgroundImageKey: row.backgroundImageKey,
     backgroundImageUrl: row.backgroundImageKey
       ? toMediaProxyUrl(row.backgroundImageKey)
-      : null,
+      : resolveMediaUrl(row.backgroundImageUrl),
     inviteCode: row.inviteCode,
     status: row.status,
+    deletedAt: deletedAt?.toISOString() ?? null,
+    daysUntilPurge: daysUntilPurge(deletedAt),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -197,6 +236,7 @@ async function prepareDescription(
 async function loadOwnedWorkspace(
   workspaceId: string,
   lecturerId: string,
+  options?: { includeDeleted?: boolean },
 ): Promise<typeof workspace.$inferSelect> {
   const rows = await db
     .select()
@@ -208,6 +248,9 @@ async function loadOwnedWorkspace(
   if (!row) throw new NotFoundError("Workspace not found");
   if (row.lecturerId !== lecturerId) {
     throw new ForbiddenError("You do not own this workspace");
+  }
+  if (!options?.includeDeleted && row.deletedAt) {
+    throw new NotFoundError("Workspace not found");
   }
   return row;
 }
@@ -226,7 +269,7 @@ export async function assertStudentCanAccessWorkspace(
     .limit(1);
 
   const row = rows[0];
-  if (!row) throw new NotFoundError("Workspace not found");
+  if (!row || row.deletedAt) throw new NotFoundError("Workspace not found");
 
   if (!isWorkspaceOpenToStudents(row.status)) {
     const label = WORKSPACE_STATUS_LABELS[row.status];
@@ -257,7 +300,7 @@ export async function assertStudentCanAccessWorkspaceByInviteCode(
     .limit(1);
 
   const row = rows[0];
-  if (!row) throw new NotFoundError("Invalid invite code");
+  if (!row || row.deletedAt) throw new NotFoundError("Invalid invite code");
 
   if (!isWorkspaceOpenToStudents(row.status)) {
     throw new ForbiddenError(
@@ -318,10 +361,13 @@ async function loadLecturerInfo(
 
 export async function listLecturerWorkspaces(input: {
   lecturerId: string;
-  query?: Partial<WorkspaceListQueryInput>;
+  query?: Partial<WorkspaceListQueryInput> & { trash?: boolean };
   /** @deprecated Prefer query.pageSize — kept for overview preview. */
   limit?: number;
 }): Promise<WorkspaceListPage> {
+  // Opportunistic retention cleanup (mirrors admin user trash prune).
+  void pruneExpiredSoftDeletedWorkspaces();
+
   const page = Math.max(1, input.query?.page ?? 1);
   const pageSize = Math.min(
     Math.max(
@@ -337,8 +383,15 @@ export async function listLecturerWorkspaces(input: {
   const status = input.query?.status ?? "ALL";
   const sortBy = input.query?.sortBy ?? "updatedAt";
   const sortDir = input.query?.sortDir ?? "desc";
+  const trash = input.query?.trash === true;
 
   const conditions: SQL[] = [eq(workspace.lecturerId, input.lecturerId)];
+
+  if (trash) {
+    conditions.push(isNotNull(workspace.deletedAt));
+  } else {
+    conditions.push(isNull(workspace.deletedAt));
+  }
 
   if (q) {
     const pattern = `%${q}%`;
@@ -355,7 +408,7 @@ export async function listLecturerWorkspaces(input: {
     conditions.push(eq(workspace.semester, semester));
   }
 
-  if (status !== "ALL") {
+  if (!trash && status !== "ALL") {
     conditions.push(eq(workspace.status, status));
   }
 
@@ -480,7 +533,8 @@ export async function createLecturerWorkspace(input: {
           workspaceId: id,
         });
         backgroundImageKey = uploaded.key;
-        backgroundImageUrl = uploaded.url;
+        // Persist proxy URL only — never expose STORAGE_ENDPOINT to clients.
+        backgroundImageUrl = toMediaProxyUrl(uploaded.key);
 
         await db
           .update(workspace)
@@ -657,24 +711,163 @@ export async function updateLecturerWorkspace(input: {
   });
 }
 
-export async function deleteLecturerWorkspace(input: {
+/**
+ * Soft-delete: move workspace to trash. Requires the lecturer to confirm by
+ * typing the exact workspace name. Sets status to INACTIVE (closed to students)
+ * while trash membership is tracked separately via deletedAt.
+ */
+export async function softDeleteLecturerWorkspace(input: {
   workspaceId: string;
   lecturerId: string;
+  confirmName: string;
   ipAddress?: string | null;
   userAgent?: string | null;
 }): Promise<void> {
   const current = await loadOwnedWorkspace(input.workspaceId, input.lecturerId);
-  const descriptionKeys = extractDescriptionImageKeys(current.description);
-  const backgroundKey = current.backgroundImageKey;
+  if (current.deletedAt) {
+    throw new ValidationError("Workspace is already in trash");
+  }
+
+  if (input.confirmName.trim() !== current.name.trim()) {
+    throw new ValidationError(
+      "Workspace name does not match. Type the exact name to confirm.",
+    );
+  }
 
   await db
-    .delete(workspace)
+    .update(workspace)
+    .set({
+      deletedAt: new Date(),
+      status: "INACTIVE",
+    })
     .where(
       and(
         eq(workspace.id, input.workspaceId),
         eq(workspace.lecturerId, input.lecturerId),
+        isNull(workspace.deletedAt),
       ),
     );
+
+  await createAuditLog({
+    actorId: input.lecturerId,
+    action: "workspace.soft_delete",
+    entityType: "workspace",
+    entityId: input.workspaceId,
+    metadata: {
+      name: current.name,
+      className: current.className,
+      semester: current.semester,
+      previousStatus: current.status,
+    },
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+  });
+}
+
+/** Restore a soft-deleted workspace from trash (stays Inactive until re-opened). */
+export async function restoreLecturerWorkspace(input: {
+  workspaceId: string;
+  lecturerId: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}): Promise<WorkspaceDetail> {
+  const current = await loadOwnedWorkspace(input.workspaceId, input.lecturerId, {
+    includeDeleted: true,
+  });
+  if (!current.deletedAt) {
+    throw new ValidationError("Workspace is not in trash");
+  }
+
+  await db
+    .update(workspace)
+    .set({
+      deletedAt: null,
+      status: "INACTIVE",
+    })
+    .where(
+      and(
+        eq(workspace.id, input.workspaceId),
+        eq(workspace.lecturerId, input.lecturerId),
+        isNotNull(workspace.deletedAt),
+      ),
+    );
+
+  await createAuditLog({
+    actorId: input.lecturerId,
+    action: "workspace.restore",
+    entityType: "workspace",
+    entityId: input.workspaceId,
+    metadata: { name: current.name },
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+  });
+
+  return getLecturerWorkspaceDetail({
+    workspaceId: input.workspaceId,
+    lecturerId: input.lecturerId,
+  });
+}
+
+/**
+ * Permanent delete from trash (or forced). Removes DB row + SeaweedFS assets.
+ */
+export async function hardDeleteLecturerWorkspace(input: {
+  workspaceId: string;
+  lecturerId: string;
+  confirmName?: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}): Promise<void> {
+  const current = await loadOwnedWorkspace(input.workspaceId, input.lecturerId, {
+    includeDeleted: true,
+  });
+  if (!current.deletedAt) {
+    throw new ValidationError(
+      "Move the workspace to trash before permanently deleting it.",
+    );
+  }
+
+  if (
+    input.confirmName != null &&
+    input.confirmName.trim() !== current.name.trim()
+  ) {
+    throw new ValidationError(
+      "Workspace name does not match. Type the exact name to confirm.",
+    );
+  }
+
+  await hardDeleteWorkspaceInternal(current, {
+    actorId: input.lecturerId,
+    reason: "lecturer_hard_delete",
+    ipAddress: input.ipAddress,
+    userAgent: input.userAgent,
+  });
+}
+
+/** @deprecated Prefer softDeleteLecturerWorkspace — kept as alias for soft delete. */
+export async function deleteLecturerWorkspace(input: {
+  workspaceId: string;
+  lecturerId: string;
+  confirmName: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}): Promise<void> {
+  return softDeleteLecturerWorkspace(input);
+}
+
+async function hardDeleteWorkspaceInternal(
+  row: typeof workspace.$inferSelect,
+  meta: {
+    actorId: string | null;
+    reason: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  },
+): Promise<void> {
+  const descriptionKeys = extractDescriptionImageKeys(row.description);
+  const backgroundKey = row.backgroundImageKey;
+
+  await db.delete(workspace).where(eq(workspace.id, row.id));
 
   await deleteWorkspaceObjects([
     ...descriptionKeys,
@@ -682,18 +875,50 @@ export async function deleteLecturerWorkspace(input: {
   ]);
 
   await createAuditLog({
-    actorId: input.lecturerId,
-    action: "workspace.delete",
+    actorId: meta.actorId,
+    action: "workspace.hard_delete",
     entityType: "workspace",
-    entityId: input.workspaceId,
+    entityId: row.id,
     metadata: {
-      name: current.name,
-      className: current.className,
-      semester: current.semester,
+      reason: meta.reason,
+      name: row.name,
+      className: row.className,
+      semester: row.semester,
     },
-    ipAddress: input.ipAddress,
-    userAgent: input.userAgent,
+    ipAddress: meta.ipAddress,
+    userAgent: meta.userAgent,
   });
+}
+
+/** Hard-delete soft-deleted workspaces past the retention window (idempotent). */
+export async function pruneExpiredSoftDeletedWorkspaces(): Promise<number> {
+  const cutoff = retentionCutoff();
+
+  try {
+    const expired = await db
+      .select()
+      .from(workspace)
+      .where(
+        and(isNotNull(workspace.deletedAt), lt(workspace.deletedAt, cutoff)),
+      )
+      .limit(50);
+
+    let purged = 0;
+    for (const row of expired) {
+      await hardDeleteWorkspaceInternal(row, {
+        actorId: null,
+        reason: "retention_expired",
+      });
+      purged += 1;
+    }
+    return purged;
+  } catch (error) {
+    logger.error(
+      { err: error },
+      "Failed to prune expired soft-deleted workspaces",
+    );
+    return 0;
+  }
 }
 
 export async function setWorkspaceBackground(input: {
@@ -720,7 +945,7 @@ export async function setWorkspaceBackground(input: {
     .update(workspace)
     .set({
       backgroundImageKey: uploaded.key,
-      backgroundImageUrl: uploaded.url,
+      backgroundImageUrl: toMediaProxyUrl(uploaded.key),
     })
     .where(eq(workspace.id, input.workspaceId));
 

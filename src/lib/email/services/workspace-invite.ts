@@ -13,6 +13,8 @@ import {
   workspaceInviteExistingText,
   workspaceInviteRegisteredNoLoginTemplate,
   workspaceInviteRegisteredNoLoginText,
+  workspaceJoinedTemplate,
+  workspaceJoinedText,
 } from "@/lib/email/templates";
 import { logger } from "@/lib/logger";
 
@@ -55,7 +57,7 @@ export async function processInviteEmailOutbox(outboxId: string): Promise<void> 
     ctaUrl,
   };
 
-  let subject = "Workspace invitation — inkcuba";
+  let subject = "You're invited to a workspace — inkcuba";
   let html = workspaceInviteExistingTemplate(input);
   let text = workspaceInviteExistingText(input);
 
@@ -67,6 +69,10 @@ export async function processInviteEmailOutbox(outboxId: string): Promise<void> 
     subject = "Activate your account — workspace invitation — inkcuba";
     html = workspaceInviteActivateTemplate(input);
     text = workspaceInviteActivateText(input);
+  } else if (outbox.template === "WORKSPACE_JOINED") {
+    subject = "Welcome to your workspace — inkcuba";
+    html = workspaceJoinedTemplate(input);
+    text = workspaceJoinedText(input);
   }
 
   try {

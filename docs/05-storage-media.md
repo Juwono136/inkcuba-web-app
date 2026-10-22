@@ -53,22 +53,26 @@ Still available for tooling/compat (JPG/PNG/WebP ≤ 2MB, prefix `avatars/regist
 
 ## Media proxy
 
-Private SeaweedFS objects are not directly readable by browsers (Basic Auth).  
-UI therefore uses:
+Private SeaweedFS objects are **never** loaded directly by the browser (that would trigger HTTP Basic Auth prompts such as `localhost:8333`).  
+All UI image/file reads go through the Next.js proxy:
 
 ```
 /api/media/avatars/...
 /api/media/workspaces/...
 ```
 
-Resolver: `src/lib/media/resolve-avatar-url.ts` (avatars)  
-Component: `UserAvatar`
+| Helper | Path | Role |
+|---|---|---|
+| Shared resolver | `src/lib/media/resolve-media-url.ts` | Rewrite raw keys / absolute storage URLs → `/api/media/...`; rewrite `<img src>` in HTML |
+| Avatar helper | `src/lib/media/resolve-avatar-url.ts` | Avatar-specific key extract + `UserAvatar` |
+| Media route | `src/app/api/media/[...key]/route.ts` | Server fetch with storage credentials; streams bytes |
 
 Behavior:
 
-1. If image URL contains `/avatars/` → rewrite to `/api/media/...`
-2. Proxy fetches with server credentials and streams bytes.
-3. On error → fallback initials avatar.
+1. On read APIs (workspace list/detail, avatars, description HTML), resolve keys/`background_image_url` through the proxy helpers — never return `STORAGE_ENDPOINT` URLs to clients.
+2. On write, persist `background_image_key` plus a **proxy** `background_image_url` (`/api/media/workspaces/...`).
+3. Proxy fetches with server credentials and streams bytes (`Cache-Control` enabled).
+4. Avatar load error → fallback initials.
 
 Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `workspaces/tmp/{lecturerId}/`).
 

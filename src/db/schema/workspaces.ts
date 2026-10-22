@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -38,6 +39,8 @@ export const workspace = pgTable(
     backgroundImageUrl: text("background_image_url"),
     inviteCode: text("invite_code").notNull().unique(),
     status: workspaceStatusEnum("status").default("DRAFT").notNull(),
+    /** Soft-delete / trash marker. Null = active record (not in trash). */
+    deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -48,12 +51,11 @@ export const workspace = pgTable(
     index("workspace_lecturer_id_idx").on(table.lecturerId),
     index("workspace_semester_idx").on(table.semester),
     index("workspace_status_idx").on(table.status),
-    uniqueIndex("workspace_unique_class_idx").on(
-      table.lecturerId,
-      table.name,
-      table.className,
-      table.semester,
-    ),
+    index("workspace_deleted_at_idx").on(table.deletedAt),
+    // Partial unique: soft-deleted rows do not block recreating the same class.
+    uniqueIndex("workspace_unique_class_idx")
+      .on(table.lecturerId, table.name, table.className, table.semester)
+      .where(sql`${table.deletedAt} is null`),
   ],
 );
 

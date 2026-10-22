@@ -65,6 +65,7 @@ export type SettingsPublicProfile = {
 };
 
 export type SettingsPayload = {
+  userId: string;
   identity: SettingsIdentity;
   image: string | null;
   canEditPublicProfile: boolean;
@@ -211,7 +212,8 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
     }
     publicProfile = mapStudentPublicProfile(profile);
   } else if (role === "LECTURER") {
-    binusianId = emptyOrNull(dbUser.nidn);
+    // BINUSIAN ID is stored on `user.nim` (same convention as User Management).
+    binusianId = emptyOrNull(dbUser.nim);
     const profile = await ensureLecturerProfile(userId);
     major = emptyOrNull(profile.major);
     department = emptyOrNull(profile.department);
@@ -242,6 +244,7 @@ export async function getSettingsForUser(userId: string): Promise<SettingsPayloa
   ]);
 
   return {
+    userId: dbUser.id,
     identity: {
       name: dbUser.name,
       email: dbUser.email,

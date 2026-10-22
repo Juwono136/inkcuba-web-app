@@ -81,13 +81,26 @@ Dashboard chrome is **role-aware**:
 
 ### Student Workspaces
 
-- Overview at `/dashboard/student` shows recent joined workspaces + join CTA
-- List at `/dashboard/student/workspaces` — debounced search, page size, pagination
-- Detail at `/dashboard/student/workspaces/[workspaceId]` — banner, description, lecturer card (Active + membership required)
+- Overview at `/dashboard/student` shows recent joined workspaces + join CTA + public profile shortcut
+- List at `/dashboard/student/workspaces` — animated cards, debounced search, **semester + class filters** (facet options from joined workspaces), page size, pagination
+- Detail at `/dashboard/student/workspaces/[workspaceId]` with tabs (`?tab=people|submission`; Info is default):
+  - **Info** — compact lecturer sidebar + workspace details/description (aligned with lecturer Info layout)
+  - **People** — read-only lecturer card + student roster (debounced search, page size, pagination); no add/remove/invite actions
+  - **Submission** — Coming Soon placeholder for portfolio/project submit
 - Public join gate at `/join?code=…` (no Better Auth `useSession` on SSR):
   - Guests see a dedicated “sign in to join” landing (workspace preview when code is valid/Active), then `/auth/sign-in?callbackUrl=/join?code=…`
   - After sign-in, students return to `/join`, auto-join, then land on the workspace detail page (not the generic dashboard)
   - Non-students see a clear blocked state
+
+### Public user profiles (`/u/[identifier]`)
+
+- Public pages for **STUDENT** and **LECTURER** (no login required), styled distinctly by role; content width aligns with site navbar (`max-w-7xl`)
+- Identifier: **BINUSIAN ID** stored on `user.nim` when present (`/u/{binusianId}`), otherwise user id — same for students and lecturers
+- Shows identity labels (campus/major/batch/department/title) with distinct icons, **Skills above About** (About supports **Show more / Show less** for long bios), Connect sidebar for social links only (share actions live in the header), avatar with scroll-zoom + drag lightbox
+- Verified portfolio/project showcase section (empty until verification ships)
+- Lecturer People tab names + student workspace lecturer cards link here
+- My Settings → Public Profile: Copy link + View public page (BINUSIAN ID is URL-only, not displayed as marketing copy)
+- API: `GET /api/public/profiles/[identifier]` (rate limited); never exposes email/NIDN
 
 ### Lecturer Workspaces (Phase 1 + People)
 
@@ -95,11 +108,12 @@ Dashboard chrome is **role-aware**:
 - List supports **debounced search**, semester filter, status (`Draft` / `Active` / `Inactive`), sort (name/class/semester/dates), and **pagination** (6/12/24/48); filters collapse behind **Search & filters** on small screens
 - Detail at `/dashboard/lecturer/workspaces/[workspaceId]` with tabs (`?tab=people|submission|scoring` persists on refresh; Info is default when omitted):
   - **Info** — compact lecturer card + workspace details; edit opens a dialog with confirm-before-save (includes **status** picker)
-  - **People** — invite panel collapses via the chevron only; member list uses **responsive cards on mobile/tablet** and a full table on desktop (Student, Student ID/NIM, Academic Program, Batch, Status, Joined via); debounced search + pagination; Excel template (styled + major/batch dropdowns from Directory Options) → preview/edit → async BullMQ commit with progress bar
+  - **People** — invite panel collapses via the chevron only; member list uses **responsive cards on mobile/tablet** and a full table on desktop (Student, Student ID/NIM, Academic Program, Batch, Status, Joined via); debounced search + pagination; Excel template (styled + major/batch dropdowns from Directory Options) → preview/edit → async BullMQ commit with progress bar. Students receive invite/welcome emails for manual add, Excel import, and join via link/code.
   - **Submission / Scoring** — Coming Soon placeholders
+- **Soft delete / trash** — Delete asks the lecturer to type the workspace name, then moves it to trash (`deleted_at` + closed as Inactive). Trash at `/dashboard/lecturer/workspaces/trash` supports restore or permanent delete. Items auto hard-purge after **30 days** (DB + SeaweedFS). Lifecycle status DRAFT/ACTIVE/INACTIVE stays separate from trash.
 - Required fields: name, class name, semester (Directory Options). Optional: background ≤10MB, description ≤8000 plain chars (TipTap + images). Status defaults to **Draft** on create so students cannot access until the lecturer sets **Active**
-- Confirm modals for create, update, delete, member remove, and import commit; SeaweedFS keys under `workspaces/…` (including `imports/`) stay in sync on replace/delete
-- Student join: `/join?code=…` + `POST /api/student/workspaces/join` (Active workspaces only). New invited users activate via `/auth/activate`
+- Confirm modals for create, update, soft-delete (typed name), member remove, and import commit; SeaweedFS keys under `workspaces/…` (including `imports/`) stay in sync on replace/hard-delete
+- Student join: `/join?code=…` + `POST /api/student/workspaces/join` (Active, non-trashed workspaces only) + welcome email. New invited users activate via `/auth/activate`
 
 ### Admin console UX
 
@@ -185,7 +199,7 @@ Shared settings logic (`src/components/settings/`):
 |---|---|---|
 | Account Identity | All | Fields shown by role. Self-editability is configured in **Field Permissions** (defaults: students RO; lecturers/admins may edit name + title). Confirm modal on save |
 | Profile Photo | All | Upload/replace/remove with confirm modals (5MB; HEIC→JPEG); updates `user.image`; previous SeaweedFS object deleted; navbar avatar syncs immediately |
-| Public Profile | Student + Lecturer | Editable bio (TipTap, plain text max **8000**), skills, social URLs, up to **4** custom-named links; confirm before save / remove |
+| Public Profile | Student + Lecturer | Editable bio (TipTap with **H1/H2/H3**, bold, italic, lists, links; plain text max **8000**), skills, social URLs, up to **4** custom-named links; confirm before save / remove; share URL prefers BINUSIAN ID |
 | Security | All | Password fields with placeholders, show/hide toggles, live strength checklist, confirm modal + notification email; validation toasts show the specific field message |
 | Login History | All | Last **7 days** of sign-ins beside Security on large screens; friendly location labels (no raw IPv6 blobs); paginated |
 
@@ -237,7 +251,7 @@ These power the public exhibition experience until live portfolio APIs are conne
 
 1. Portfolio submission workspace for students
 2. Lecturer Workspaces Phase 2 — People (Excel/manual), Submission cards, Scoring
-3. Student workspace access (Info + Submission only)
+3. Student workspace access (Info + People read-only + Submission)
 4. Public exhibition pipeline for approved portfolios
 5. Real explore filters backed by DB
 6. Audit trail visibility UI for admins (writes already exist from User Management)

@@ -50,6 +50,9 @@ export function SettingsPageClient({
       {settings.canEditPublicProfile && settings.publicProfile ? (
         <div className="min-w-0">
           <PublicProfileSection
+            userId={settings.userId}
+            role={settings.identity.role}
+            nim={settings.identity.nim}
             initialProfile={settings.publicProfile}
             onSaved={setSettings}
           />

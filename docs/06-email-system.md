@@ -63,9 +63,10 @@ Queued via BullMQ (`workspace-invite-email`) and audited in `workspace_email_out
 
 | Template | When | CTA |
 |---|---|---|
-| `INVITE_EXISTING` | Registered student who has logged in before | Open dashboard |
+| `INVITE_EXISTING` | Registered student who has logged in before (manual add / Excel) | Open workspace |
 | `INVITE_REGISTERED_NO_LOGIN` | Account exists but never logged in | Set / reset password |
 | `INVITE_ACTIVATE` | New account created from Excel/manual invite | `/auth/activate?token=…` (create password) |
+| `WORKSPACE_JOINED` | Student joins via invite link or code | Go to workspace |
 
 Services: `src/lib/email/services/workspace-invite.ts`. Worker: `npm run worker` / PM2 `inkcuba-worker`.
 

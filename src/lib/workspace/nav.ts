@@ -105,10 +105,19 @@ export function getWorkspaceBreadcrumbs(
       return crumbs;
     }
 
+    if (pathname.endsWith("/trash")) {
+      crumbs.push({ label: "Trash" });
+      return crumbs;
+    }
+
     const detailMatch = pathname.match(
       /^\/dashboard\/lecturer\/workspaces\/([^/]+)/,
     );
-    if (detailMatch?.[1] && detailMatch[1] !== "new") {
+    if (
+      detailMatch?.[1] &&
+      detailMatch[1] !== "new" &&
+      detailMatch[1] !== "trash"
+    ) {
       crumbs.push({ label: "Details" });
     }
     return crumbs;

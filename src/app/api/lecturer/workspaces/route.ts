@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       status: searchParams.get("status") ?? undefined,
       sortBy: searchParams.get("sortBy") ?? undefined,
       sortDir: searchParams.get("sortDir") ?? undefined,
+      trash: searchParams.get("trash") ?? undefined,
     });
 
     if (!parsed.success) {

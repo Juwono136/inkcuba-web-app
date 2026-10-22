@@ -1,3 +1,5 @@
+import { resolveMediaUrl } from "@/lib/media/resolve-media-url";
+
 const AVATAR_KEY_PREFIX = "avatars/";
 
 /**
@@ -17,7 +19,9 @@ export function extractAvatarStorageKey(url: string): string | null {
   const apiIndex = trimmed.indexOf(apiMarker);
 
   if (apiIndex !== -1) {
-    return (trimmed.slice(apiIndex + "/api/media/".length).split("?")[0] ?? null);
+    return (
+      trimmed.slice(apiIndex + "/api/media/".length).split("?")[0] ?? null
+    );
   }
 
   const marker = `/${AVATAR_KEY_PREFIX}`;
@@ -43,7 +47,8 @@ export function resolveUserImageUrl(
     return `/api/media/${storageKey}`;
   }
 
-  return image;
+  // Fallback: rewrite any other storage-shaped URL; keep external avatars.
+  return resolveMediaUrl(image);
 }
 
 export function getUserInitials(name: string): string {

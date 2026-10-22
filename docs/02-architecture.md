@@ -121,9 +121,9 @@ Profile photos are uploaded later via **My Settings** → `/api/settings/avatar`
 
 Students and lecturers edit public profile fields via `PATCH /api/settings/profile`:
 
-- Bio is authored with TipTap (`RichTextEditor`): StarterKit with **built-in Link disabled** (`link: false`) plus one configured `@tiptap/extension-link` to avoid duplicate-extension warnings.
-- Toolbar actions preserve editor selection (`onMouseDown` preventDefault) so bold/italic/lists/links work reliably.
-- Server sanitizes bio HTML (`src/lib/settings/sanitize-bio.ts`) before persist.
+- Bio is authored with TipTap (`RichTextEditor`): StarterKit with **heading levels 1–3**, **built-in Link disabled** (`link: false`) plus one configured `@tiptap/extension-link` to avoid duplicate-extension warnings.
+- Toolbar actions preserve editor selection (`onMouseDown` preventDefault) so headings/bold/italic/lists/links work reliably.
+- Server sanitizes bio HTML (`src/lib/settings/sanitize-bio.ts`) before persist (allowlist includes `h1`/`h2`/`h3`).
 - UI confirms save and destructive removals (skills / filled custom links).
 - Bio plain-text limit is **8000** characters; custom links store up to **4** `{ label, url }` entries in `portfolio_links` jsonb.
 

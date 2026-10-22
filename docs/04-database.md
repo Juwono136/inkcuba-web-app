@@ -155,10 +155,11 @@ Supports lecturer-managed class workspaces (portfolio verification entry point),
 | `description` | Optional sanitized HTML (rich text + images), plain-text max 8000 |
 | `background_image_key` / `background_image_url` | Optional SeaweedFS background (null → brand gradient default in UI) |
 | `invite_code` | Unique join code: exactly **8** chars, lowercase letters + digits only (`[a-z0-9]{8}`); legacy codes are migrated on lecturer detail load |
+| `deleted_at` | Soft-delete / trash marker (`null` = not in trash). Separate from lifecycle `status`. Retention **30 days** then hard purge |
 | `lecturer_id` | Owner (cascade on user delete) |
 | `status` | `DRAFT` \| `ACTIVE` \| `INACTIVE` (default `DRAFT` on create). Students may access only `ACTIVE`. |
 
-Unique on `(lecturer_id, name, class_name, semester)`. Index on `status`. Migrations: `0009_workspace_product_fields`, `0010_workspace_status`, `0011_workspace_people`.
+Partial unique on `(lecturer_id, name, class_name, semester) WHERE deleted_at IS NULL`. Indexes on `status`, `deleted_at`. Migrations: `0009`–`0012` (soft-delete).
 
 ### `workspace_member` (People tab)
 

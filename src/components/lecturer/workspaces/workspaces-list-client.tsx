@@ -13,6 +13,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -186,15 +187,27 @@ export function WorkspacesListClient() {
             score student portfolios — starting with workspace info.
           </p>
         </div>
-        <Button
-          asChild
-          className="bg-inkcuba-cyan shadow-inkcuba hover:bg-sky-600"
-        >
-          <Link href="/dashboard/lecturer/workspaces/new">
-            <Plus className="h-4 w-4" />
-            Create workspace
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            asChild
+            variant="outline"
+            className="border-slate-900 bg-white shadow-inkcuba hover:bg-slate-50"
+          >
+            <Link href="/dashboard/lecturer/workspaces/trash">
+              <Trash2 className="h-4 w-4 text-slate-700" />
+              Trash
+            </Link>
+          </Button>
+          <Button
+            asChild
+            className="bg-inkcuba-cyan shadow-inkcuba hover:bg-sky-600"
+          >
+            <Link href="/dashboard/lecturer/workspaces/new">
+              <Plus className="h-4 w-4" />
+              Create workspace
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-2xl border-2 border-inkcuba-navy bg-white p-3 shadow-inkcuba sm:p-5">

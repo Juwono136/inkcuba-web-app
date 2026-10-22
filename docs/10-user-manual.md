@@ -113,16 +113,28 @@ While logged in, you can still use Home / Explore / Courses / Campus Stats from 
 
 ### Student dashboard (`/dashboard/student`)
 
-For student accounts. Overview shows recent **workspaces** you joined plus shortcuts to open the list or join with a code.
+For student accounts. Overview shows recent **workspaces**, join shortcuts, and a link to your **public profile**.
 
 #### Workspaces
 
-1. Open **Workspaces** in the sidebar — search (debounced), change page size, paginate as the list grows.
-2. Open a workspace card to see banner, description, and lecturer info (only **Active** workspaces you belong to).
+1. Open **Workspaces** in the sidebar — search (debounced), filter by **semester** or **class**, change page size, and paginate as the list grows.
+2. Open a workspace card (only **Active** workspaces you belong to). Use the tabs:
+   - **Info** — compact lecturer sidebar + workspace details and description (tap lecturer to open their public profile).
+   - **People** — lecturer + full student roster (search with debounce, pagination). View only — no edit/add/remove.
+   - **Submission** — Coming Soon for portfolio/project submit.
 3. To join a new class: open the lecturer’s invite link (`/join?code=…`) or use **Join with code**.
    - If you are not signed in, you see a dedicated gate page asking you to sign in first.
    - After sign-in you return to the join flow and land **inside that workspace** (not the generic dashboard home).
 
+### Public profiles (`/u/…`)
+
+Anyone can open a student or lecturer public page without signing in:
+
+- Students and lecturers: usually `/u/{BINUSIAN ID}` (from `user.nim`; falls back to user id if unset).
+- Content comes from My Settings (identity labels, photo, bio with headings, skills above about, social links). Long About text can be expanded with **Show more**. Photo supports scroll-to-zoom and drag-to-pan. Use header **Share / Copy link** to promote the profile.
+- Verified portfolios will appear in a dedicated section once that workflow ships.
+- From **My Settings → Public Profile**, use **Copy link** or **View public page**.
+- In a lecturer workspace **People** tab, click a student name/avatar to open their public page.
 ### Lecturer dashboard (`/dashboard/lecturer`)
 
 For lecturer accounts. Overview shows a create-workspace CTA and your recent workspaces. Use **Workspaces** in the sidebar for the full list.
@@ -131,13 +143,13 @@ For lecturer accounts. Overview shows a create-workspace CTA and your recent wor
 
 1. Open **Workspaces** → use search, semester/status filters, and sort as the list grows; on mobile, tap **Search & filters** to expand or collapse those controls. Change page size at the bottom.
 2. **Create workspace** — enter **workspace name**, **class name**, and **semester** (from Directory Options). Choose **status** (**Draft** by default, **Active**, or **Inactive**). Optionally upload a background (**recommended 1600 × 480 px**, ≤10MB) and write a rich description. Confirm in the modal before creating.
-3. After create, open the workspace: **Info** shows your lecturer profile + workspace details. Tabs stay on refresh via the URL (`?tab=people`). **Edit** opens a dialog (including status); confirm before saving. **Delete** also asks for confirmation.
-4. Only **Active** workspaces can be accessed by students. **Draft** and **Inactive** stay lecturer-only.
+3. After create, open the workspace: **Info** shows your lecturer profile + workspace details. Tabs stay on refresh via the URL (`?tab=people`). **Edit** opens a dialog (including status); confirm before saving. **Delete** soft-deletes: type the workspace name to move it to **Trash** (closed to students). From Trash you can restore or permanently delete; items auto-remove after 30 days.
+4. Only **Active** workspaces (not in trash) can be accessed by students. **Draft** and **Inactive** stay lecturer-only.
 5. **People** tab:
    - Use the **chevron** on Invite students to show/hide link + code (tap the arrow only — the rest of the header does not toggle).
-   - Member table columns: **Student** (name + email), **Student ID / NIM**, **Academic Program**, **Batch**, **Status**, **Joined via**, **Actions**.
+   - Member table columns: **Student** (name + email — name/avatar open the student’s public profile), **Student ID / NIM**, **Academic Program**, **Batch**, **Status**, **Joined via**, **Actions**.
    - **Add students** — search registered students (debounced), multi-select with a live selection count, confirm → invite emails.
-   - **Template** asks for confirmation before download; the Excel file has styled headers, an example row, Instructions + Majors/Batches reference sheets, and Academic Program + Batch dropdowns synced with Admin Directory Options.
+   - **Template** asks for a short confirmation before download; the Excel file has styled headers, an example row, Instructions + Majors/Batches reference sheets, and Academic Program + Batch dropdowns synced with Admin Directory Options. Invited students are notified by email (manual add, Excel import, and when they join via link/code).
    - **Import Excel** — upload `.xlsx` (upload progress), fix preview errors, then **Commit** (BullMQ chunked ImportJob + progress bar + retryable invite emails).
    - Member list supports **debounced search**, page size, and pagination.
 6. **Submission** and **Scoring** are Coming Soon.
@@ -198,7 +210,7 @@ Dedicated administration console (not the public site header/footer):
 
 1. **Account Identity** — students: view-only institutional fields by default. Lecturers & admins: edit fields allowed by Field Permissions (default name + title) with confirmation; other institutional fields stay admin-managed / read-only unless enabled. Full name allows common punctuation (e.g. `Manuaba, Ph.D`). Paired with Profile Photo on large screens.
 2. **Profile Photo** — change/remove with confirmations; SeaweedFS stays in sync.
-3. **Public Profile** (students & lecturers) — bio (up to 8,000 characters), skills, social links, and up to 4 custom-named links (label + URL).
+3. **Public Profile** (students & lecturers) — bio (up to 8,000 characters; toolbar includes Heading 1–3, bold, italic, lists, links), skills, social links, and up to 4 custom-named links (label + URL). Copy link / View public page actions are available at the top of the section.
 4. **Security** + **Login History** — shown **side by side** on large screens so you do not scroll past empty space. Login history covers the last 7 days with plain-language locations (e.g. “Private network”, “This computer”) instead of raw IP strings.
 
 A **Scroll to top** button appears on every page after you scroll down (~400px).

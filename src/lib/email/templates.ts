@@ -146,21 +146,28 @@ export function workspaceInviteExistingTemplate(
   input: WorkspaceInviteEmailInput,
 ): string {
   return buildEmailLayout({
-    preheader: `You have been invited to workspace ${input.workspaceName}.`,
-    title: "Workspace invitation",
+    preheader: `You're invited to ${input.workspaceName} on inkcuba.`,
+    title: "You're invited to a workspace",
     body: `
       <p style="margin:0 0 16px;">Hello <strong>${escapeHtml(input.studentName)}</strong>,</p>
       <p style="margin:0 0 16px;">
-        You have been invited to the workspace
+        <strong>${escapeHtml(input.lecturerName)}</strong> invited you to join
         <strong>${escapeHtml(input.workspaceName)}</strong>
-        (${escapeHtml(input.className)} · ${escapeHtml(input.semesterLabel)})
-        by <strong>${escapeHtml(input.lecturerName)}</strong> on ${escapeHtml(siteConfig.name)}.
+        on ${escapeHtml(siteConfig.name)}.
       </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#475569;">
+            <strong style="color:#0F172A;">Class</strong> · ${escapeHtml(input.className)}<br />
+            <strong style="color:#0F172A;">Semester</strong> · ${escapeHtml(input.semesterLabel)}
+          </td>
+        </tr>
+      </table>
       <p style="margin:0;font-size:14px;color:#64748B;">
-        Sign in to your dashboard to open the workspace and start submitting portfolios when submission cards are available.
+        Sign in to open the workspace and follow your lecturer’s next steps for submissions.
       </p>
     `,
-    ctaLabel: "Open dashboard",
+    ctaLabel: "Open workspace",
     ctaUrl: input.ctaUrl,
     footerNote: "If you were not expecting this invitation, you can ignore this email.",
   });
@@ -253,6 +260,47 @@ An account was created for you. Activate your account and create a password:
 ${input.ctaUrl}
 
 This link expires in 7 days.
+
+— ${siteConfig.name}`;
+}
+
+export function workspaceJoinedTemplate(
+  input: WorkspaceInviteEmailInput,
+): string {
+  return buildEmailLayout({
+    preheader: `You're now in ${input.workspaceName} on inkcuba.`,
+    title: "Welcome to your workspace",
+    body: `
+      <p style="margin:0 0 16px;">Hello <strong>${escapeHtml(input.studentName)}</strong>,</p>
+      <p style="margin:0 0 16px;">
+        You successfully joined
+        <strong>${escapeHtml(input.workspaceName)}</strong>
+        taught by <strong>${escapeHtml(input.lecturerName)}</strong>.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:12px;">
+        <tr>
+          <td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#065F46;">
+            <strong>Class</strong> · ${escapeHtml(input.className)}<br />
+            <strong>Semester</strong> · ${escapeHtml(input.semesterLabel)}
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0;font-size:14px;color:#64748B;">
+        Open your student dashboard anytime to view workspace info, classmates, and upcoming submissions.
+      </p>
+    `,
+    ctaLabel: "Go to workspace",
+    ctaUrl: input.ctaUrl,
+    footerNote: "Keep this email for your records. You can leave or re-join only if your lecturer allows it.",
+  });
+}
+
+export function workspaceJoinedText(input: WorkspaceInviteEmailInput): string {
+  return `Hello ${input.studentName},
+
+You successfully joined "${input.workspaceName}" (${input.className} · ${input.semesterLabel}) taught by ${input.lecturerName}.
+
+Open your workspace: ${input.ctaUrl}
 
 — ${siteConfig.name}`;
 }

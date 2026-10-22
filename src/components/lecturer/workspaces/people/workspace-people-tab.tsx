@@ -19,6 +19,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -47,6 +48,7 @@ import {
   useAllDirectoryOptions,
 } from "@/hooks/use-directory-options";
 import { clientEnv } from "@/config/env-client";
+import { getPublicProfileHref } from "@/lib/profiles/public-profile-path";
 import { cn } from "@/lib/utils";
 import type {
   WorkspaceCandidatePage,
@@ -413,16 +415,33 @@ export function WorkspacePeopleTab({
                   className="rounded-2xl border-2 border-inkcuba-navy bg-white p-4 shadow-inkcuba"
                 >
                   <div className="flex items-start gap-3">
-                    <UserAvatar
-                      name={member.user.name}
-                      image={member.user.image}
-                      size="md"
-                    />
+                    <Link
+                      href={getPublicProfileHref({
+                        id: member.user.id,
+                        role: "STUDENT",
+                        nim: member.user.nim,
+                      })}
+                      className="shrink-0 rounded-full transition hover:opacity-90"
+                      aria-label={`Open ${member.user.name} public profile`}
+                    >
+                      <UserAvatar
+                        name={member.user.name}
+                        image={member.user.image}
+                        size="md"
+                      />
+                    </Link>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate font-heading text-base font-bold text-slate-900">
+                        <Link
+                          href={getPublicProfileHref({
+                            id: member.user.id,
+                            role: "STUDENT",
+                            nim: member.user.nim,
+                          })}
+                          className="truncate font-heading text-base font-bold text-slate-900 underline-offset-2 hover:text-inkcuba-purple hover:underline"
+                        >
                           {member.user.name}
-                        </h3>
+                        </Link>
                         <span
                           className={cn(
                             "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase",
@@ -525,15 +544,32 @@ export function WorkspacePeopleTab({
                     >
                       <td className="px-4 py-3">
                         <div className="flex min-w-[200px] items-center gap-3">
-                          <UserAvatar
-                            name={member.user.name}
-                            image={member.user.image}
-                            size="sm"
-                          />
+                          <Link
+                            href={getPublicProfileHref({
+                              id: member.user.id,
+                              role: "STUDENT",
+                              nim: member.user.nim,
+                            })}
+                            className="shrink-0 rounded-full transition hover:opacity-90"
+                            aria-label={`Open ${member.user.name} public profile`}
+                          >
+                            <UserAvatar
+                              name={member.user.name}
+                              image={member.user.image}
+                              size="sm"
+                            />
+                          </Link>
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-slate-900">
+                            <Link
+                              href={getPublicProfileHref({
+                                id: member.user.id,
+                                role: "STUDENT",
+                                nim: member.user.nim,
+                              })}
+                              className="truncate font-semibold text-slate-900 underline-offset-2 hover:text-inkcuba-purple hover:underline"
+                            >
                               {member.user.name}
-                            </p>
+                            </Link>
                             <p className="truncate text-xs text-slate-500">
                               {member.user.email}
                             </p>
@@ -672,7 +708,7 @@ export function WorkspacePeopleTab({
         open={templateConfirmOpen}
         onOpenChange={setTemplateConfirmOpen}
         title="Download Excel template?"
-        description="The template includes Student Name, Student ID / NIM, Student Email, Academic Program, and Batch — aligned with the People table. Academic Program and Batch dropdowns sync live from Admin Directory Options. Use the dropdowns in Excel; mismatched values will block import until fixed in preview. Row 2 is a highlighted example you can replace or delete."
+        description="Downloads a ready-to-fill student list template. Use the Academic Program and Batch dropdowns in Excel — they match your Admin Directory Options. Row 2 is an example you can replace."
         confirmLabel="Download template"
         onConfirm={async () => {
           downloadTemplate();

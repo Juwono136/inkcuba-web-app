@@ -58,6 +58,12 @@ export const workspaceListQuerySchema = z.object({
 
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 
+  trash: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .transform((v) => v === true || v === "true")
+    .default(false),
+
 });
 
 

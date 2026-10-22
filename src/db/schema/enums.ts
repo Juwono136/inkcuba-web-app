@@ -80,6 +80,7 @@ export const workspaceEmailTemplateEnum = pgEnum(
     "INVITE_EXISTING",
     "INVITE_REGISTERED_NO_LOGIN",
     "INVITE_ACTIVATE",
+    "WORKSPACE_JOINED",
   ],
 );
 

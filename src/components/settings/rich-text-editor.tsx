@@ -5,6 +5,9 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
   Bold,
+  Heading1,
+  Heading2,
+  Heading3,
   Italic,
   Link2,
   List,
@@ -69,7 +72,7 @@ export function RichTextEditor({
       // TipTap v3 StarterKit already ships Link — disable it so we can
       // configure a single Link instance with openOnClick: false.
       StarterKit.configure({
-        heading: false,
+        heading: { levels: [1, 2, 3] },
         codeBlock: false,
         blockquote: false,
         horizontalRule: false,
@@ -187,6 +190,36 @@ export function RichTextEditor({
         )}
       >
         <div className="flex flex-wrap gap-1 border-b-2 border-slate-200 bg-slate-50 p-2">
+          <ToolbarButton
+            label="Heading 1"
+            active={editor.isActive("heading", { level: 1 })}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 1 }).run()
+            }
+            disabled={disabled}
+          >
+            <Heading1 className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Heading 2"
+            active={editor.isActive("heading", { level: 2 })}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 2 }).run()
+            }
+            disabled={disabled}
+          >
+            <Heading2 className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Heading 3"
+            active={editor.isActive("heading", { level: 3 })}
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 3 }).run()
+            }
+            disabled={disabled}
+          >
+            <Heading3 className="h-4 w-4" />
+          </ToolbarButton>
           <ToolbarButton
             label="Bold"
             active={editor.isActive("bold")}

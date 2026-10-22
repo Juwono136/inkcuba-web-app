@@ -49,9 +49,10 @@ Public visitors browse without an account.
 | Avatar upload (SeaweedFS) | Done | Upload on form submit only |
 | Media proxy for private storage | Done | `/api/media/[...key]` |
 | Dashboards (student / lecturer / admin) | Partial | Student + lecturer Workspaces live; portfolios Coming Soon |
-| Lecturer Workspaces | Done (Phase 1+People) | Create/edit/list; Info + People (manual add with selection count, Excel template confirm + Directory major sync, invite link/8-char code, member search+pagination); Submission/Scoring Coming Soon |
-| Student Workspaces | Done (join + list/detail) | `/join` gate → sign-in → workspace detail; sidebar Workspaces list with search/pagination |
-| My Settings page | Done | Identity (RO), photo, public profile, password, 7-day login history |
+| Lecturer Workspaces | Done (Phase 1+People) | Create/edit/list; soft-delete trash (30d purge); Info + People (manual/Excel/link/code invites + emails); Submission/Scoring Coming Soon |
+| Student Workspaces | Done (join + list/detail tabs) | `/join` gate → sign-in → detail with Info / People (read-only) / Submission; list search/pagination |
+| Public user profiles | Done | `/u/{binusianId|userId}` for students & lecturers; friendly share; People/lecturer cards link in |
+| My Settings page | Done | Identity (RO), photo, public profile (+ view/copy public URL), password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
 | Admin User Management | Done | List/search/filter; edit role, activation, identity; soft delete + trash; audit writes |
 | Admin Directory Options | Done | CRUD + drag-reorder, search/pagination for campus/major/batch/semester/department selects |

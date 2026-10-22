@@ -1,7 +1,15 @@
 "use client";
 
-import { Loader2, Plus, X } from "lucide-react";
-import { useState } from "react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Plus,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { RichTextEditor } from "@/components/settings/rich-text-editor";
@@ -19,6 +27,9 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { clientEnv } from "@/config/env-client";
+import type { UserRole } from "@/lib/auth/permissions";
+import { getPublicProfileHref } from "@/lib/profiles/public-profile-path";
 import type {
   SettingsPayload,
   SettingsPublicProfile,
@@ -37,6 +48,9 @@ import {
 import { publicProfileSchema } from "@/lib/validators/settings";
 
 type PublicProfileSectionProps = {
+  userId: string;
+  role: UserRole;
+  nim: string | null;
   initialProfile: SettingsPublicProfile;
   onSaved: (settings: SettingsPayload) => void;
 };
@@ -47,6 +61,9 @@ type PendingRemoval =
   | null;
 
 export function PublicProfileSection({
+  userId,
+  role,
+  nim,
   initialProfile,
   onSaved,
 }: PublicProfileSectionProps) {
@@ -73,8 +90,26 @@ export function PublicProfileSection({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval>(null);
+  const [copied, setCopied] = useState(false);
+
+  const profilePath = useMemo(
+    () => getPublicProfileHref({ id: userId, role, nim }),
+    [userId, role, nim],
+  );
+  const shareUrl = `${clientEnv.NEXT_PUBLIC_APP_URL}${profilePath}`;
 
   const bioLength = plainTextFromHtml(bio).length;
+
+  async function copyPublicLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Public profile link copied");
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error("Unable to copy link");
+    }
+  }
 
   function buildPayload() {
     return {
@@ -244,10 +279,52 @@ export function PublicProfileSection({
   return (
     <SettingsSectionCard
       title="Public Profile"
-      description="This information can appear on your public exhibition profile."
+      description="This information appears on your public inkcuba profile page — share it for branding and showcase."
       delay={0.15}
     >
       <div className="space-y-5">
+        <div className="flex flex-col gap-3 rounded-2xl border-2 border-slate-200 bg-slate-50/80 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold tracking-wide text-slate-500 uppercase">
+              Your public profile
+            </p>
+            <p className="mt-0.5 text-sm text-slate-600">
+              Share or preview how your profile appears to others.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-slate-900"
+              onClick={() => void copyPublicLink()}
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              Copy link
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="bg-inkcuba-cyan shadow-inkcuba hover:bg-sky-600"
+              asChild
+            >
+              <Link
+                href={profilePath}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View public page
+              </Link>
+            </Button>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <Label>Bio</Label>
