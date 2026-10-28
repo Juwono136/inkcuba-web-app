@@ -26,6 +26,17 @@ export const groupAssignmentMethodEnum = pgEnum("group_assignment_method", [
   "SELF_SELECT",
 ]);
 
+export const assignmentStatusEnum = pgEnum("assignment_status", [
+  "DRAFT",
+  "ACTIVE",
+  "CLOSED",
+]);
+
+export const assignmentScheduleModeEnum = pgEnum("assignment_schedule_mode", [
+  "OPEN",
+  "WINDOW",
+]);
+
 export const workspaceMemberStatusEnum = pgEnum("workspace_member_status", [
   "INVITED",
   "ACTIVE",

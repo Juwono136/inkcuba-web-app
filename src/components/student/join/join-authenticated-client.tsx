@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -88,6 +89,12 @@ export function JoinAuthenticatedClient({
   return (
     <div className="mx-auto w-full max-w-md space-y-5 px-4 py-10">
       <div>
+        <Button asChild variant="outline" className="mb-3 border-slate-900">
+          <Link href="/dashboard/student/workspaces">
+            <ArrowLeft className="h-4 w-4" />
+            Back to workspaces
+          </Link>
+        </Button>
         <h1 className="font-heading text-2xl font-bold text-slate-900">
           Join a workspace
         </h1>

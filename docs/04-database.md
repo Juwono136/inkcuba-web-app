@@ -17,6 +17,7 @@ npm run db:migrate    # Apply pending migrations
 npm run db:push       # Push schema directly (dev convenience)
 npm run db:studio     # Open Drizzle Studio
 npm run db:seed-admin -- --email=admin@binus.ac.id --password=YourPass1 --name="Admin Name"
+npm run db:seed-dev-students   # local dummy students only; refuses production and remote databases
 ```
 
 > After schema changes in code, always generate + migrate so the live database stays aligned. Example past issue: missing `campus` column caused sign-up 500 until migration `0001_rainy_jackpot.sql` was applied.
@@ -32,7 +33,9 @@ Defined in `src/db/schema/enums.ts`:
 | `user_role` | `STUDENT`, `LECTURER`, `ADMIN` |
 | `portfolio_status` | `DRAFT`, `PENDING_REVIEW`, `REVISION_REQUIRED`, `APPROVED`, `TAKEDOWN`, `ARCHIVED` |
 | `assignment_type` | `INDIVIDUAL`, `GROUP` |
-| `group_assignment_method` | `RANDOM`, `MANUAL`, `SELF_SELECT` |
+| `assignment_status` | `DRAFT`, `ACTIVE`, `CLOSED` |
+| `assignment_schedule_mode` | `OPEN` (no deadline), `WINDOW` (opens_at–closes_at) |
+| `group_assignment_method` | `RANDOM`, `MANUAL` (unused in UI), `SELF_SELECT` |
 | `workspace_status` | `DRAFT`, `ACTIVE`, `INACTIVE` — only `ACTIVE` is open to students |
 | `workspace_member_status` | `INVITED`, `ACTIVE`, `REMOVED` |
 | `workspace_member_source` | `MANUAL`, `EXCEL`, `LINK`, `CODE` |
@@ -176,9 +179,25 @@ Partial unique on `(lecturer_id, name, class_name, semester) WHERE deleted_at IS
 - `workspace_invitation_token` — hashed activation tokens for new students (no plaintext passwords)
 - `workspace_email_outbox` — invite email audit + retry visibility
 
-Also present (future): `assignment`, `assignment_group`, `assignment_group_member`.
+Also live: `assignment` (submission slot), `assignment_group`, `assignment_group_member`. Migration `0013_workspace_submissions`.
 
-> Lecturer People tab is live (manual add, Excel import, invite link/code). Submission / Scoring remain Coming Soon. Student join via `/join` + `POST /api/student/workspaces/join`.
+### `assignment` (submission slot)
+
+| Column | Notes |
+|---|---|
+| `title` | Required, 3–120 characters |
+| `description` | Optional sanitized HTML (bold, italic, lists, links). No images. Plain text max **2500** |
+| `type` | `INDIVIDUAL` or `GROUP` |
+| `group_method` | `RANDOM` or `SELF_SELECT` when type is `GROUP` |
+| `max_group_size` | 2–20, required for groups |
+| `max_score` | Integer 1–1000, stored for later scoring |
+| `schedule_mode` | `OPEN` or `WINDOW` |
+| `opens_at` / `closes_at` | Required together for `WINDOW`; both null for `OPEN`. `due_date` is unused |
+| `status` | `DRAFT` (lecturer only), `ACTIVE` (students can see and move groups), `CLOSED` (read-only) |
+
+`assignment_group_member` stores `assignment_id` with a unique `(assignment_id, user_id)` so one student cannot sit in two groups of the same submission. Removing a workspace member deletes those group rows in the same transaction. Group moves lock the submission row. Random assignment replaces groups inside one transaction. Adding groups also locks the submission row and inserts the requested empty groups in one transaction (1–50 per request, 200 groups maximum). Each group's `max_members` follows `max_group_size`. Total seats on the board is the sum of those capacities, so three groups with a size of 2 show 6 seats.
+
+> Scoring and portfolio submit stay Coming Soon. The prepare page only explains why submit is still blocked.
 
 ---
 

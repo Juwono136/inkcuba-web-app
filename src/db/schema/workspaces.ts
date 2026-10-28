@@ -12,6 +12,8 @@ import {
 
 import { user } from "@/db/schema/auth";
 import {
+  assignmentScheduleModeEnum,
+  assignmentStatusEnum,
   assignmentTypeEnum,
   groupAssignmentMethodEnum,
   workspaceEmailOutboxStatusEnum,
@@ -261,7 +263,15 @@ export const assignment = pgTable(
     type: assignmentTypeEnum("type").default("INDIVIDUAL").notNull(),
     groupMethod: groupAssignmentMethodEnum("group_method"),
     maxGroupSize: integer("max_group_size"),
+    /** Unused by the submission UI. Windows use opens_at / closes_at. */
     dueDate: timestamp("due_date"),
+    maxScore: integer("max_score").notNull(),
+    scheduleMode: assignmentScheduleModeEnum("schedule_mode")
+      .default("OPEN")
+      .notNull(),
+    opensAt: timestamp("opens_at"),
+    closesAt: timestamp("closes_at"),
+    status: assignmentStatusEnum("status").default("DRAFT").notNull(),
     isPublished: boolean("is_published").default(false).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -273,6 +283,7 @@ export const assignment = pgTable(
   (table) => [
     index("assignment_workspace_id_idx").on(table.workspaceId),
     index("assignment_due_date_idx").on(table.dueDate),
+    index("assignment_workspace_status_idx").on(table.workspaceId, table.status),
   ],
 );
 
@@ -299,6 +310,9 @@ export const assignmentGroupMember = pgTable(
   "assignment_group_member",
   {
     id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignment.id, { onDelete: "cascade" }),
     groupId: text("group_id")
       .notNull()
       .references(() => assignmentGroup.id, { onDelete: "cascade" }),
@@ -313,6 +327,10 @@ export const assignmentGroupMember = pgTable(
     index("assignment_group_member_user_id_idx").on(table.userId),
     uniqueIndex("assignment_group_member_unique_idx").on(
       table.groupId,
+      table.userId,
+    ),
+    uniqueIndex("assignment_group_member_assignment_user_idx").on(
+      table.assignmentId,
       table.userId,
     ),
   ],

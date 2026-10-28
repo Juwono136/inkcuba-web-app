@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import { WorkspaceDefaultBackground } from "@/components/lecturer/workspaces/workspace-form";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,6 +63,9 @@ export function WorkspacesTrashClient() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+  const [pendingRestore, setPendingRestore] = useState<WorkspaceRecord | null>(
+    null,
+  );
   const [pendingHard, setPendingHard] = useState<WorkspaceRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -79,11 +83,12 @@ export function WorkspacesTrashClient() {
     placeholderData: (prev) => prev,
   });
 
-  async function restore(item: WorkspaceRecord) {
-    setBusyId(item.id);
+  async function restore() {
+    if (!pendingRestore) return;
+    setBusyId(pendingRestore.id);
     try {
       const response = await fetch(
-        `/api/lecturer/workspaces/${item.id}/restore`,
+        `/api/lecturer/workspaces/${pendingRestore.id}/restore`,
         { method: "POST" },
       );
       const payload = (await response.json()) as ApiEnvelope<{
@@ -93,6 +98,7 @@ export function WorkspacesTrashClient() {
         throw new Error(payload.error?.message || "Restore failed");
       }
       toast.success("Workspace restored (Inactive — set Active when ready)");
+      setPendingRestore(null);
       await queryClient.invalidateQueries({
         queryKey: ["lecturer-workspaces-trash"],
       });
@@ -101,6 +107,7 @@ export function WorkspacesTrashClient() {
       toast.error(
         error instanceof Error ? error.message : "Unable to restore workspace",
       );
+      throw error;
     } finally {
       setBusyId(null);
     }
@@ -254,7 +261,7 @@ export function WorkspacesTrashClient() {
                       size="sm"
                       className="border-slate-900"
                       disabled={busyId === item.id}
-                      onClick={() => void restore(item)}
+                      onClick={() => setPendingRestore(item)}
                     >
                       {busyId === item.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -346,6 +353,23 @@ export function WorkspacesTrashClient() {
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingRestore)}
+        onOpenChange={(open) => {
+          if (!open) setPendingRestore(null);
+        }}
+        title="Restore workspace?"
+        description={
+          pendingRestore
+            ? `"${pendingRestore.name}" will leave trash and return to your workspaces as Inactive. Students stay closed out until you set the status to Active.`
+            : "This workspace will leave trash and return as Inactive."
+        }
+        confirmLabel="Restore workspace"
+        cancelLabel="Cancel"
+        loading={busyId === pendingRestore?.id}
+        onConfirm={restore}
+      />
 
       <TypedConfirmDialog
         open={Boolean(pendingHard)}

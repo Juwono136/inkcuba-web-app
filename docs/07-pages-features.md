@@ -84,9 +84,9 @@ Dashboard chrome is **role-aware**:
 - Overview at `/dashboard/student` shows recent joined workspaces + join CTA + public profile shortcut
 - List at `/dashboard/student/workspaces` — animated cards, debounced search, **semester + class filters** (facet options from joined workspaces), page size, pagination
 - Detail at `/dashboard/student/workspaces/[workspaceId]` with tabs (`?tab=people|submission`; Info is default):
-  - **Info** — compact lecturer sidebar + workspace details/description (aligned with lecturer Info layout)
+  - **Info** — compact lecturer sidebar, then the current active submission card, then workspace details
   - **People** — read-only lecturer card + student roster (debounced search, page size, pagination); no add/remove/invite actions
-  - **Submission** — Coming Soon placeholder for portfolio/project submit
+  - **Submission** — published slots with debounced search, status/type filters, sort (updated, title, opening date, score, status, and direction), and pagination. Filters collapse behind **Search & filters** on small screens. Cards open the detail view. Long descriptions collapse behind **Show full description**. Group slots open a drag-and-drop board (students move only themselves, and only while the slot is Active). A move asks for confirmation before it is saved. **Prepare project** is a button inside each group card that already has at least 2 members (a coming-soon page; submit stays disabled until that feature ships). Individual slots keep the action under the submission details. Waiting-list and group pages each use a full-width pager. Long member lists scroll inside the card
 - Public join gate at `/join?code=…` (no Better Auth `useSession` on SSR):
   - Guests see a dedicated “sign in to join” landing (workspace preview when code is valid/Active), then `/auth/sign-in?callbackUrl=/join?code=…`
   - After sign-in, students return to `/join`, auto-join, then land on the workspace detail page (not the generic dashboard)
@@ -107,9 +107,10 @@ Dashboard chrome is **role-aware**:
 - List + create at `/dashboard/lecturer/workspaces` (+ `/new`)
 - List supports **debounced search**, semester filter, status (`Draft` / `Active` / `Inactive`), sort (name/class/semester/dates), and **pagination** (6/12/24/48); filters collapse behind **Search & filters** on small screens
 - Detail at `/dashboard/lecturer/workspaces/[workspaceId]` with tabs (`?tab=people|submission|scoring` persists on refresh; Info is default when omitted):
-  - **Info** — compact lecturer card + workspace details; edit opens a dialog with confirm-before-save (includes **status** picker)
+  - **Info** — compact lecturer card, current active submission card underneath, workspace details; edit opens a dialog with confirm-before-save (includes **status** picker)
   - **People** — invite panel collapses via the chevron only; member list uses **responsive cards on mobile/tablet** and a full table on desktop (Student, Student ID/NIM, Academic Program, Batch, Status, Joined via); debounced search + pagination; Excel template (styled + major/batch dropdowns from Directory Options) → preview/edit → async BullMQ commit with progress bar. Students receive invite/welcome emails for manual add, Excel import, and join via link/code.
-  - **Submission / Scoring** — Coming Soon placeholders
+  - **Submission** — create/edit slots with a **Draft or Active** status (title, date + time window or no deadline, max score 1–1000, optional rich text ≤2500, individual or group). **Close** still locks an active slot. Delete asks the lecturer to type the submission title, because student project data may already be attached. Group boards keep **Unassigned** visually separate from project groups. On a phone, press and hold the drag handle (touch scrolling no longer cancels the gesture). Moves, adding groups, and deleting an empty group each open a confirmation. **Add groups** asks how many empty groups to create at once (1–50 per request, 200 groups maximum on one submission). The board separates **seats each** (the per-group limit) from **total seats** (groups multiplied by that limit). A unique member constraint blocks duplicates. The list has debounced search, status/type filters, sort, and pagination; filters collapse on small screens. The waiting list and the group list each paginate with a full-width pager under that list. Long member lists scroll inside the card. Long descriptions use **Show full description** / **Show less**.
+  - **Scoring** — Coming Soon placeholder
 - **Soft delete / trash** — Delete asks the lecturer to type the workspace name, then moves it to trash (`deleted_at` + closed as Inactive). Trash at `/dashboard/lecturer/workspaces/trash` supports restore or permanent delete. Items auto hard-purge after **30 days** (DB + SeaweedFS). Lifecycle status DRAFT/ACTIVE/INACTIVE stays separate from trash.
 - Required fields: name, class name, semester (Directory Options). Optional: background ≤10MB, description ≤8000 plain chars (TipTap + images). Status defaults to **Draft** on create so students cannot access until the lecturer sets **Active**
 - Confirm modals for create, update, soft-delete (typed name), member remove, and import commit; SeaweedFS keys under `workspaces/…` (including `imports/`) stay in sync on replace/hard-delete
@@ -249,12 +250,10 @@ These power the public exhibition experience until live portfolio APIs are conne
 
 ## Planned feature surfaces (schema-ready)
 
-1. Portfolio submission workspace for students
-2. Lecturer Workspaces Phase 2 — People (Excel/manual), Submission cards, Scoring
-3. Student workspace access (Info + People read-only + Submission)
-4. Public exhibition pipeline for approved portfolios
-5. Real explore filters backed by DB
-6. Audit trail visibility UI for admins (writes already exist from User Management)
+1. Portfolio upload and lecturer scoring (submission slots and group formation are live; submit is still Coming Soon)
+2. Public exhibition pipeline for approved portfolios
+3. Real explore filters backed by DB
+4. Audit trail visibility UI for admins (writes already exist from User Management)
 
 See [01 — Product Overview](./01-product-overview.md) status matrix.
 

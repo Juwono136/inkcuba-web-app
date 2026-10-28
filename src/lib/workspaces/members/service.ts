@@ -22,6 +22,7 @@ import {
 import { resolveDirectoryLabels } from "@/lib/directory/service";
 import { enqueueInviteEmail } from "@/lib/queues";
 import { toMediaProxyUrl } from "@/lib/workspaces/sanitize-description";
+import { deleteUserGroupsInWorkspace } from "@/lib/workspaces/submissions/groups";
 import {
   generateInvitationToken,
   hashInvitationToken,
@@ -524,13 +525,17 @@ export async function removeWorkspaceMember(input: {
   if (!member) throw new NotFoundError("Member not found");
   if (member.status === "REMOVED") return;
 
-  await db
-    .update(workspaceMember)
-    .set({
-      status: "REMOVED",
-      removedAt: new Date(),
-    })
-    .where(eq(workspaceMember.id, member.id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(workspaceMember)
+      .set({
+        status: "REMOVED",
+        removedAt: new Date(),
+      })
+      .where(eq(workspaceMember.id, member.id));
+
+    await deleteUserGroupsInWorkspace(tx, input.workspaceId, member.userId);
+  });
 
   await createAuditLog({
     actorId: input.lecturerId,

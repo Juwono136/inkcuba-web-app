@@ -7,7 +7,6 @@ import {
   ExternalLink,
   FileUp,
   Info,
-  Sparkles,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -15,6 +14,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { WorkspaceDefaultBackground } from "@/components/lecturer/workspaces/workspace-form";
 import { StudentWorkspacePeopleTab } from "@/components/student/workspaces/student-workspace-people-tab";
+import { StudentSubmissionTab } from "@/components/student/workspaces/student-submission-tab";
+import { SubmissionInfoCard } from "@/components/workspaces/submission-info-card";
 import { Button } from "@/components/ui/button";
 import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -62,8 +63,18 @@ export function StudentWorkspaceDetailClient({
     } else {
       params.set("tab", next);
     }
+    params.delete("submission");
+    params.delete("view");
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  function openSubmission(id: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "submission");
+    params.set("submission", id);
+    params.delete("view");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   const query = useQuery({
@@ -151,9 +162,18 @@ export function StudentWorkspaceDetailClient({
           <h1 className="font-heading text-xl font-bold text-slate-900 sm:text-2xl">
             {ws.name}
           </h1>
-          <p className="text-sm text-slate-600">
-            {ws.className} · {ws.semesterLabel}
-            {ws.memberCount > 0 ? ` · ${ws.memberCount} people` : ""}
+          <p className="flex flex-wrap gap-2 text-sm text-slate-600">
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-medium text-slate-700">
+              {ws.className}
+            </span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-medium text-slate-700">
+              {ws.semesterLabel}
+            </span>
+            {ws.memberCount > 0 ? (
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-medium text-slate-700">
+                {ws.memberCount} people
+              </span>
+            ) : null}
           </p>
         </div>
       </section>
@@ -195,6 +215,7 @@ export function StudentWorkspaceDetailClient({
       >
         {tab === "info" ? (
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            <div className="space-y-4">
             <aside className="h-fit rounded-2xl border-2 border-inkcuba-navy bg-white p-4 shadow-inkcuba">
               <h2 className="text-[11px] font-bold tracking-[0.14em] text-slate-500 uppercase">
                 Lecturer
@@ -239,6 +260,11 @@ export function StudentWorkspaceDetailClient({
                 />
               </dl>
             </aside>
+            <SubmissionInfoCard
+              endpoint={`/api/student/workspaces/${workspaceId}/submissions/current`}
+              onOpen={openSubmission}
+            />
+            </div>
 
             <section className="rounded-2xl border-2 border-inkcuba-navy bg-white p-4 shadow-inkcuba sm:p-5">
               <h2 className="font-heading text-lg font-bold text-slate-900">
@@ -277,24 +303,7 @@ export function StudentWorkspaceDetailClient({
         ) : null}
 
         {tab === "submission" ? (
-          <div className="rounded-2xl border-2 border-dashed border-inkcuba-navy bg-gradient-to-br from-amber-50 via-white to-sky-50 p-6 shadow-inkcuba sm:p-8">
-            <div className="flex items-start gap-3">
-              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-inkcuba-orange" />
-              <div>
-                <p className="text-xs font-bold tracking-[0.14em] text-inkcuba-orange uppercase">
-                  Coming soon
-                </p>
-                <h2 className="mt-1 font-heading text-xl font-bold text-slate-900">
-                  Submission
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-                  Soon you’ll submit portfolios and projects here when your
-                  lecturer opens a submission slot. Check back after the next
-                  workspace phase goes live.
-                </p>
-              </div>
-            </div>
-          </div>
+          <StudentSubmissionTab workspaceId={workspaceId} />
         ) : null}
       </motion.div>
     </motion.div>

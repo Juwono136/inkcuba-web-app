@@ -44,6 +44,9 @@ npm run db:migrate
 # 4. (Optional) Seed an admin account
 npm run db:seed-admin -- --email=admin@binus.ac.id --password=YourPass1 --name="Admin"
 
+# 4b. (Optional, local only) Seed 10 dummy students for workspace testing
+npm run db:seed-dev-students
+
 # 5. Start development server
 npm run dev
 ```
@@ -57,4 +60,4 @@ Open [http://localhost:3000](http://localhost:3000).
 - Environment template: `.env.example`
 - Database migrations: `drizzle/`
 - Source code: `src/`
-- Seed script: `scripts/seed-admin.ts`
+- Seed scripts: `scripts/seed-admin.ts`, `scripts/seed-dev-students.ts` (local dummy students only)

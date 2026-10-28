@@ -112,6 +112,7 @@ If a value contains `$`, escape it as `\$`. Next.js expands `$VAR` inside env fi
 | `npm run db:push` | Push schema (dev) |
 | `npm run db:studio` | Drizzle Studio |
 | `npm run db:seed-admin` | Create admin user |
+| `npm run db:seed-dev-students` | Create 10 local dummy students (localhost database only) |
 | `npm run generate:favicon` | Rebuild `icon.png` / `apple-icon.png` (PNG favicons; no `.ico`) |
 
 ---
@@ -126,6 +127,20 @@ npm run db:seed-admin -- \
 ```
 
 Password must satisfy strength rules (upper + lower + number, min 8).
+
+---
+
+## Local dummy students
+
+For workspace and submission testing on this machine only:
+
+```bash
+npm run db:seed-dev-students
+```
+
+The script creates 10 student accounts (`dev.student01@binus.edu` through `dev.student10@binus.edu`). Shared password: `LocalDev1`. NIMs are `DEV260001` through `DEV260010`. Email is already verified, so they can sign in without a verification mail.
+
+It refuses to run when `NODE_ENV` is `production` or when `DATABASE_URL` points anywhere other than `localhost`, `127.0.0.1`, or `::1`. It is not part of `dev`, `build`, or `start`. Running it again updates only these reserved accounts. It will stop if an email belongs to another role, or if a reserved NIM is already used by a different account. The students are not joined to a workspace. Add them from the lecturer **People** tab by searching `Dev Student` or `DEV26`.
 
 ---
 
@@ -148,8 +163,8 @@ Password must satisfy strength rules (upper + lower + number, min 8).
 
 | Script | Purpose |
 |---|---|
-| `npm run dev` | Next.js + BullMQ worker via `concurrently` |
-| `npm run dev:web` | Next.js only |
+| `npm run dev` | Next.js (webpack) + BullMQ worker via `concurrently` |
+| `npm run dev:web` | Next.js only (webpack) |
 | `npm run worker` | BullMQ worker only |
 | `npm run pm2:start` | Production PM2 (web + worker) |
 
@@ -164,7 +179,7 @@ Optional env: `WORKSPACE_IMPORT_MAX_ROWS` (default 2000), `WORKSPACE_IMPORT_CHUN
 | `column "campus" does not exist` | Run `npm run db:migrate` |
 | Avatar broken on dashboard | Ensure storage up + media proxy works |
 | Auth pages 500 during Fast Refresh | Restart `npm run dev` |
-| Auth / API routes 404 while `/` still works | Stop server, delete `.next`, run `npm run dev` again (corrupted route cache) |
+| Workspace submission or other nested API returns `Unexpected token '<'` / HTML 404 | Stop the dev server and start it again with `npm run dev`. Local dev uses webpack, same as `npm run build`, so nested routes under `[workspaceId]` stay registered after a restart. Turbopack can drop those routes for the whole session and answer with the HTML not-found page. |
 | No emails | Verify SMTP App Password and port |
 | Rate limit 429 | Wait retry window or check Redis |
 | Reset link invalid | Confirm `NEXT_PUBLIC_APP_URL` matches actual origin |

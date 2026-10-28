@@ -87,6 +87,8 @@ Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `wo
 | Create-time drafts | `workspaces/tmp/{lecturerId}/` | **5MB** | Used while creating a workspace before an id exists |
 | People Excel imports | `workspaces/{workspaceId}/imports/{jobId}/source.xlsx` | **5MB** | Deleted after successful commit; cancelled jobs cleaned on next upload |
 
+Submission descriptions are rich text only (no image upload), so this phase does not write submission files to SeaweedFS. Future portfolio uploads will use the same replace/delete rules as workspace media.
+
 Default background in UI (no storage object): brand gradient + inkcuba logo.
 
 ---

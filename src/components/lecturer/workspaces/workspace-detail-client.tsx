@@ -22,6 +22,8 @@ import {
   type WorkspaceFormValues,
 } from "@/components/lecturer/workspaces/workspace-form";
 import { WorkspacePeopleTab } from "@/components/lecturer/workspaces/people/workspace-people-tab";
+import { LecturerSubmissionTab } from "@/components/lecturer/workspaces/submissions/lecturer-submission-tab";
+import { SubmissionInfoCard } from "@/components/workspaces/submission-info-card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TypedConfirmDialog } from "@/components/ui/typed-confirm-dialog";
@@ -120,8 +122,19 @@ export function WorkspaceDetailClient({
     } else {
       params.set("tab", next);
     }
+    params.delete("submission");
+    params.delete("view");
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  function openSubmission(id: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "submission");
+    params.set("submission", id);
+    params.delete("view");
+    const qs = params.toString();
+    router.replace(`${pathname}?${qs}`, { scroll: false });
   }
 
   const query = useQuery({
@@ -286,8 +299,13 @@ export function WorkspaceDetailClient({
             <h1 className="font-heading mt-1 text-xl font-bold text-slate-900 sm:text-2xl">
               {workspace.name}
             </h1>
-            <p className="mt-0.5 text-sm text-slate-600">
-              {workspace.className} · {workspace.semesterLabel}
+            <p className="mt-1 flex flex-wrap gap-2 text-sm text-slate-600">
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-medium text-slate-700">
+                {workspace.className}
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-medium text-slate-700">
+                {workspace.semesterLabel}
+              </span>
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -346,7 +364,8 @@ export function WorkspaceDetailClient({
         transition={{ duration: 0.2 }}
       >
         {tab === "info" ? (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            <div className="space-y-4">
             <section className="h-fit rounded-2xl border-2 border-inkcuba-navy bg-white p-4 shadow-inkcuba">
               <h2 className="text-[11px] font-bold tracking-[0.14em] text-slate-500 uppercase">
                 Lecturer
@@ -398,6 +417,11 @@ export function WorkspaceDetailClient({
                 <CompactField label="NIDN" value={workspace.lecturer.nidn} />
               </dl>
             </section>
+            <SubmissionInfoCard
+              endpoint={`/api/lecturer/workspaces/${workspaceId}/submissions/current`}
+              onOpen={openSubmission}
+            />
+            </div>
 
             <section className="rounded-2xl border-2 border-inkcuba-navy bg-white p-4 shadow-inkcuba sm:p-5">
               <h2 className="font-heading text-lg font-bold text-slate-900">
@@ -448,10 +472,7 @@ export function WorkspaceDetailClient({
           />
         ) : null}
         {tab === "submission" ? (
-          <ComingSoonPanel
-            title="Submission"
-            description="Soon you’ll create submission slots (cards) so enrolled students can submit portfolios for review."
-          />
+          <LecturerSubmissionTab workspaceId={workspaceId} />
         ) : null}
         {tab === "scoring" ? (
           <ComingSoonPanel

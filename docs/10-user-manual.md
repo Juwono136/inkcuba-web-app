@@ -119,9 +119,9 @@ For student accounts. Overview shows recent **workspaces**, join shortcuts, and 
 
 1. Open **Workspaces** in the sidebar — search (debounced), filter by **semester** or **class**, change page size, and paginate as the list grows.
 2. Open a workspace card (only **Active** workspaces you belong to). Use the tabs:
-   - **Info** — compact lecturer sidebar + workspace details and description (tap lecturer to open their public profile).
+   - **Info** — compact lecturer sidebar, the current active submission (if any), then workspace details and description (tap lecturer to open their public profile).
    - **People** — lecturer + full student roster (search with debounce, pagination). View only — no edit/add/remove.
-   - **Submission** — Coming Soon for portfolio/project submit.
+   - **Submission** — search, filter, and sort published slots. On a phone, open **Search & filters** to reach those controls. Open a card for the full slot. Long descriptions can be expanded with **Show full description**. For a group slot, press and hold the drag handle (or use **Move to**) to join a group that is not full, then confirm the move. **Prepare project** sits inside each group card that already has at least 2 members. Open it from your own group. Waiting-list and group pages each have their own full-width pager, and long member lists scroll inside the card. Submit stays disabled. Use **Back to all submissions** to leave the detail view.
 3. To join a new class: open the lecturer’s invite link (`/join?code=…`) or use **Join with code**.
    - If you are not signed in, you see a dedicated gate page asking you to sign in first.
    - After sign-in you return to the join flow and land **inside that workspace** (not the generic dashboard home).
@@ -143,7 +143,7 @@ For lecturer accounts. Overview shows a create-workspace CTA and your recent wor
 
 1. Open **Workspaces** → use search, semester/status filters, and sort as the list grows; on mobile, tap **Search & filters** to expand or collapse those controls. Change page size at the bottom.
 2. **Create workspace** — enter **workspace name**, **class name**, and **semester** (from Directory Options). Choose **status** (**Draft** by default, **Active**, or **Inactive**). Optionally upload a background (**recommended 1600 × 480 px**, ≤10MB) and write a rich description. Confirm in the modal before creating.
-3. After create, open the workspace: **Info** shows your lecturer profile + workspace details. Tabs stay on refresh via the URL (`?tab=people`). **Edit** opens a dialog (including status); confirm before saving. **Delete** soft-deletes: type the workspace name to move it to **Trash** (closed to students). From Trash you can restore or permanently delete; items auto-remove after 30 days.
+3. After create, open the workspace: **Info** shows your lecturer profile, the current active submission under it, and workspace details. Tabs stay on refresh via the URL (`?tab=people`). **Edit** opens a dialog (including status); confirm before saving. **Delete** soft-deletes: type the workspace name to move it to **Trash** (closed to students). From Trash you can restore or permanently delete; items auto-remove after 30 days.
 4. Only **Active** workspaces (not in trash) can be accessed by students. **Draft** and **Inactive** stay lecturer-only.
 5. **People** tab:
    - Use the **chevron** on Invite students to show/hide link + code (tap the arrow only — the rest of the header does not toggle).
@@ -152,7 +152,12 @@ For lecturer accounts. Overview shows a create-workspace CTA and your recent wor
    - **Template** asks for a short confirmation before download; the Excel file has styled headers, an example row, Instructions + Majors/Batches reference sheets, and Academic Program + Batch dropdowns synced with Admin Directory Options. Invited students are notified by email (manual add, Excel import, and when they join via link/code).
    - **Import Excel** — upload `.xlsx` (upload progress), fix preview errors, then **Commit** (BullMQ chunked ImportJob + progress bar + retryable invite emails).
    - Member list supports **debounced search**, page size, and pagination.
-6. **Submission** and **Scoring** are Coming Soon.
+6. **Submission** tab:
+   - **New submission** or **Edit** — title, status (**Draft** or **Active**), schedule (separate date and time for open and close, or no deadline), maximum score (whole number), optional short rich-text description, and individual or group. Confirm before saving. **Active** is visible to students immediately. **Draft** stays lecturer-only until you change it.
+   - The list supports debounced search, status and type filters, and sort (last updated, title, opening date, score, or status, ascending or descending). On a small screen, those controls sit behind **Search & filters**. Cards use a pointer cursor and open the detail view. Use **Back to all submissions** to return.
+   - **Close** locks groups and edits. **Delete** asks you to type the submission title. Use it only when you are sure, because groups and any student project data on that slot are removed.
+   - Group slots: set a maximum size (2–20) and either let students drag between groups or **Assign randomly** (even split, replaces the current arrangement). **Unassigned** is a separate waiting list from the group cards. On a phone, press and hold the handle, then drop on a group. **Move to** does the same job. Either way, confirm before the student changes groups. **Add groups** opens a dialog where you choose how many empty groups to create at once (up to 50 per confirmation, 200 groups on one submission). Deleting an empty group also asks for confirmation. The board shows active students, the number of groups, seats in each group, and total seats. Total seats is every group multiplied by the seats in each group, so three groups with a limit of 2 have 6 seats altogether. Search names by pausing briefly after typing (the list waits, then updates). The waiting list and the group list each have their own full-width pager, placed directly under that list, and only when that list needs another page. Long member lists scroll inside the card. Long descriptions can be expanded or collapsed. The detail header shows schedule, maximum score, and type.
+7. **Scoring** is Coming Soon. Students can open **Prepare project**, but they cannot submit a portfolio yet.
 
 ### Admin dashboard (`/dashboard/admin`)
 
@@ -230,7 +235,7 @@ A **Scroll to top** button appears on every page after you scroll down (~400px).
 
 ## 8. Admin operator notes (brief)
 
-1. Seed admin with `npm run db:seed-admin`.
+1. Seed admin with `npm run db:seed-admin`. Local workspace testing can also add 10 dummy students with `npm run db:seed-dev-students` (localhost database only; see the environment setup doc).
 2. Ensure DB migrations are applied before onboarding users.
 3. Keep SMTP/storage/Redis healthy (`/api/health?detailed=true`).
 4. Monitor auth rate-limit behavior under abuse.

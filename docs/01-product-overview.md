@@ -49,8 +49,8 @@ Public visitors browse without an account.
 | Avatar upload (SeaweedFS) | Done | Upload on form submit only |
 | Media proxy for private storage | Done | `/api/media/[...key]` |
 | Dashboards (student / lecturer / admin) | Partial | Student + lecturer Workspaces live; portfolios Coming Soon |
-| Lecturer Workspaces | Done (Phase 1+People) | Create/edit/list; soft-delete trash (30d purge); Info + People (manual/Excel/link/code invites + emails); Submission/Scoring Coming Soon |
-| Student Workspaces | Done (join + list/detail tabs) | `/join` gate → sign-in → detail with Info / People (read-only) / Submission; list search/pagination |
+| Lecturer Workspaces | Done (submissions) | Create/edit/list; soft-delete trash (30d purge); Info + People; Submission slots (individual/group, schedule, groups); Scoring Coming Soon |
+| Student Workspaces | Done (join + submissions) | `/join` gate → detail with Info (current submission card) / People / Submission groups + prepare page; portfolio submit still Coming Soon |
 | Public user profiles | Done | `/u/{binusianId|userId}` for students & lecturers; friendly share; People/lecturer cards link in |
 | My Settings page | Done | Identity (RO), photo, public profile (+ view/copy public URL), password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
@@ -69,8 +69,8 @@ Public visitors browse without an account.
 | Area | Status | Notes |
 |---|---|---|
 | Student / lecturer profiles | Done | My Settings + admin identity sync |
-| Workspaces (lecturer Phase 1+People) | Done | Create/edit/list + Info + People members/import/join |
-| Portfolios / media / reviews | Schema ready | Submission & review workflow planned |
+| Workspaces (lecturer + student) | Done | Create/edit/list + Info + People + Submission slots and groups |
+| Portfolios / media / reviews | Schema ready | Submission slots exist; portfolio upload, review, and scoring are not built yet |
 | Audit logs | Schema ready | Audit helpers exist |
 
 ---

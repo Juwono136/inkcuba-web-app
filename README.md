@@ -44,4 +44,5 @@ npm run build
 npm start
 npm run db:migrate
 npm run db:seed-admin -- --email=admin@binus.ac.id --password=YourPass1 --name="Admin"
+npm run db:seed-dev-students
 ```

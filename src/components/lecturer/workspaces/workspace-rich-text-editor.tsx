@@ -38,7 +38,12 @@ type WorkspaceRichTextEditorProps = {
   disabled?: boolean;
   placeholder?: string;
   /** Upload endpoint for description images (tmp or workspace-scoped). */
-  imageUploadUrl: string;
+  imageUploadUrl?: string;
+  /** Submission descriptions are text-only. Workspace descriptions keep images. */
+  allowImages?: boolean;
+  ariaLabel?: string;
+  maxPlainLength?: number;
+  showCounter?: boolean;
 };
 
 function normalizeEditorHtml(html: string): string {
@@ -70,6 +75,10 @@ export function WorkspaceRichTextEditor({
   disabled = false,
   placeholder = "Describe this workspace…",
   imageUploadUrl,
+  allowImages = true,
+  ariaLabel = "Description",
+  maxPlainLength = WORKSPACE_DESCRIPTION_MAX_PLAIN,
+  showCounter = true,
 }: WorkspaceRichTextEditorProps) {
   const skipNextExternalSync = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,13 +110,17 @@ export function WorkspaceRichTextEditor({
         shouldAutoLink: (url) =>
           isValidLinkHref(url) || /^https?:\/\//i.test(url),
       }),
-      Image.configure({
-        inline: false,
-        allowBase64: false,
-        HTMLAttributes: {
-          class: "max-h-80 rounded-xl border border-slate-200",
-        },
-      }),
+      ...(allowImages
+        ? [
+            Image.configure({
+              inline: false,
+              allowBase64: false,
+              HTMLAttributes: {
+                class: "max-h-80 rounded-xl border border-slate-200",
+              },
+            }),
+          ]
+        : []),
     ],
     content: value || "",
     editable: !disabled,
@@ -123,7 +136,7 @@ export function WorkspaceRichTextEditor({
           "inkcuba-rich-text min-h-[160px] px-3 py-2 text-sm text-slate-900 outline-none",
           "[&_img]:my-2 [&_img]:max-w-full",
         ),
-        "aria-label": "Workspace description",
+        "aria-label": ariaLabel,
       },
     },
   });
@@ -149,7 +162,7 @@ export function WorkspaceRichTextEditor({
   const plainLength = plainTextFromHtml(value || "").length;
 
   async function handleImageSelected(file: File | null) {
-    if (!file || !editor) return;
+    if (!file || !editor || !imageUploadUrl) return;
 
     setUploadingImage(true);
     try {
@@ -274,17 +287,20 @@ export function WorkspaceRichTextEditor({
               <Unlink className="h-4 w-4" />
             </ToolbarButton>
           ) : null}
-          <ToolbarButton
-            label="Insert image"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || uploadingImage}
-          >
-            {uploadingImage ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ImagePlus className="h-4 w-4" />
-            )}
-          </ToolbarButton>
+          {allowImages && imageUploadUrl ? (
+            <ToolbarButton
+              label="Insert image"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || uploadingImage}
+            >
+              {uploadingImage ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImagePlus className="h-4 w-4" />
+              )}
+            </ToolbarButton>
+          ) : null}
+          {allowImages && imageUploadUrl ? (
           <input
             ref={fileInputRef}
             type="file"
@@ -294,6 +310,7 @@ export function WorkspaceRichTextEditor({
               handleImageSelected(event.target.files?.[0] ?? null)
             }
           />
+          ) : null}
         </div>
         <div className="relative">
           {editor.isEmpty ? (
@@ -307,16 +324,18 @@ export function WorkspaceRichTextEditor({
           <EditorContent editor={editor} />
         </div>
       </div>
-      <p
-        className={cn(
-          "mt-1.5 text-xs",
-          plainLength > WORKSPACE_DESCRIPTION_MAX_PLAIN
-            ? "font-semibold text-red-600"
-            : "text-slate-500",
-        )}
-      >
-        {plainLength}/{WORKSPACE_DESCRIPTION_MAX_PLAIN} characters
-      </p>
+      {showCounter ? (
+        <p
+          className={cn(
+            "mt-1.5 text-xs",
+            plainLength > maxPlainLength
+              ? "font-semibold text-red-600"
+              : "text-slate-500",
+          )}
+        >
+          {plainLength}/{maxPlainLength} characters
+        </p>
+      ) : null}
 
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent

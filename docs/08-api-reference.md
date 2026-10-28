@@ -325,6 +325,33 @@ Same as above for create-form drafts under `workspaces/tmp/{lecturerId}/`.
 | GET | `/api/student/workspaces/[id]` | Membership + Active gate; INVITED → ACTIVE on first open; includes lecturer labels + member count |
 | GET | `/api/student/workspaces/[id]/people` | Read-only member list (`q`, `page`, `pageSize`, `status`); membership required; no mutate endpoints |
 | POST | `/api/student/workspaces/join` | Body `{ code }` — code must be `[a-z0-9]{8}` (normalized lowercase); Active workspace only; idempotent |
+
+### Submissions
+
+Lecturer routes require the workspace owner. Student routes require an **Active** membership on an **Active**, non-trashed workspace. Draft slots are hidden from students. Group moves are idempotent when the student is already in the target group, and a unique `(assignment_id, user_id)` index rejects duplicates. Description HTML is sanitized (no images).
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/lecturer/workspaces/[id]/submissions` | `page`, `pageSize`, `q`, `status`, `type`, `sortBy` (`updatedAt` \| `title` \| `opensAt` \| `maxScore` \| `status`), `sortDir` (`asc` \| `desc`) |
+| POST | `/api/lecturer/workspaces/[id]/submissions` | Create a slot. Body `status` is `DRAFT` or `ACTIVE` (default `DRAFT`) |
+| GET | `/api/lecturer/workspaces/[id]/submissions/current` | Active slot for the Info card |
+| GET/PATCH/DELETE | `.../submissions/[submissionId]` | Read, update (including `status` `DRAFT` or `ACTIVE`), or delete. Closed slots cannot be edited |
+| POST | `.../submissions/[submissionId]/publish` | Draft → Active |
+| POST | `.../submissions/[submissionId]/close` | Active → Closed |
+| GET/POST | `.../submissions/[submissionId]/groups` | List (search + pagination) or add empty groups. POST body `{ count }` (1–50). Optional `Idempotency-Key` header (UUID) returns the same groups if the request is repeated. A submission holds at most 200 groups. The row is locked for the insert |
+| POST | `.../groups/random` | Replace groups with an even random split |
+| POST | `.../groups/move` | `{ userId, toGroupId }` — `toGroupId` null unassigns |
+| DELETE | `.../groups/[groupId]` | Empty groups only; at least one group remains |
+| GET | `/api/student/workspaces/[id]/submissions` | Active and closed only; same `sortBy` / `sortDir` as the lecturer list |
+| GET | `.../submissions/current` | Same Info-card payload |
+| GET | `.../submissions/[submissionId]` | Detail + prepare eligibility + `viewerUserId` |
+| GET | `.../submissions/[submissionId]/groups` | Read-only board data |
+| POST | `.../submissions/[submissionId]/move` | `{ toGroupId }` — moves only the signed-in student |
+
+### Student join & workspace detail (continued)
+
+| Method | Path | Notes |
+|---|---|---|
 | POST | `/api/auth/activate` | Body `{ token, password, confirmPassword }` — new invitees create password |
 
 Public page `/join` is a server-rendered gate (guests) / join client (students). Post-login `callbackUrl` is validated with `getSafeInternalPath` (open-redirect safe).
