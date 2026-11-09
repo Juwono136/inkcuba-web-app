@@ -346,7 +346,16 @@ Lecturer routes require the workspace owner. Student routes require an **Active*
 | GET | `.../submissions/current` | Same Info-card payload |
 | GET | `.../submissions/[submissionId]` | Detail + prepare eligibility + `viewerUserId` |
 | GET | `.../submissions/[submissionId]/groups` | Read-only board data |
-| POST | `.../submissions/[submissionId]/move` | `{ toGroupId }` — moves only the signed-in student |
+| POST | `.../submissions/[submissionId]/move` | `{ toGroupId }` — moves only the signed-in student. Refused when their current group, or the target group, already has a project. Lecturers can still move those students |
+| POST | `.../submissions/[submissionId]/project` | Opens or creates the student project for this slot (one per student, or one shared project per group) and returns `{ id }` |
+| GET | `/api/student/projects` | Project lists. `page`, `pageSize`, `q`, `status`, `sortBy` (`updatedAt` \| `title` \| `status`), `sortDir`. Each item includes `kind`, `canEdit`, `canDelete`, `accessLabel`, `isDetached`, and `submissionHref` when reachable |
+| GET/PATCH/DELETE | `/api/student/projects/[id]` | Read (`?source=submission\|lists` controls back navigation), save a draft, or hard-delete. PATCH sends title, description, URLs, links, and `expectedUpdatedAt`. A stale `updatedAt` is rejected. DELETE removes the row and SeaweedFS objects when the caller is allowed (draft/archived/taken-down while linked; also orphaned submitted states when the slot is gone). Live group projects require current membership for edit/archive/delete |
+| POST | `.../projects/[id]/submit` | `DRAFT` → `SUBMITTED`, or `NEED_REVISION` → `REVISED`. Optional `Idempotency-Key` (UUID). Requires an **Active** slot whose schedule window is open (`ALWAYS` / `OPEN`), required fields, and at least 2 group members when the project is shared. Refused when the window is upcoming or ended; drafts may still be saved |
+| POST | `.../projects/[id]/archive` | Sets `ARCHIVED`. Files stay. Same membership rules as edit for live group projects |
+| POST/DELETE | `.../projects/[id]/images` and `.../images/[imageId]` | Overview images (max 3). Multipart field `file` |
+| POST/DELETE | `.../projects/[id]/video` | Optional overview video. Requires `ffmpeg` on the server |
+| POST/DELETE | `.../projects/[id]/documents` and `.../documents/[documentId]` | Multipart `file` plus `role` `PROJECT` or `ADDITIONAL`. A new `PROJECT` file replaces the previous one |
+| GET | `/api/lecturer/workspaces/[id]/submissions/[submissionId]/projects` | Read-only project list and status for that slot. No review actions |
 
 ### Student join & workspace detail (continued)
 

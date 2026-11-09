@@ -238,6 +238,20 @@ export function SubmissionGroupBoard({
     if (!board || locked) return;
     const destination = input.toGroupId ?? UNASSIGNED;
     if (input.fromGroupId === destination) return;
+    if (mode === "student") {
+      const from = board.groupOptions.find((option) => option.id === input.fromGroupId);
+      if (from?.projectStarted) {
+        toast.error("Your group has started a project. Only your lecturer can move you.");
+        return;
+      }
+      const target = input.toGroupId
+        ? board.groupOptions.find((option) => option.id === input.toGroupId)
+        : null;
+      if (target?.projectStarted) {
+        toast.error("That group has already started a project. Ask your lecturer if you need to join it.");
+        return;
+      }
+    }
     if (input.toGroupId) {
       const target = board.groupOptions.find((option) => option.id === input.toGroupId);
       if (target && target.memberCount >= target.maxMembers) {
@@ -416,8 +430,18 @@ export function SubmissionGroupBoard({
           {data.seatCapacity} seats in total.
         </p>
       ) : null}
+      {mode === "student" ? (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Groups stay put once a project starts</p>
+          <p className="mt-1 leading-relaxed">
+            You can join a group that has not started a project yet. After someone opens Prepare project, members of that group can only be moved by the lecturer.
+          </p>
+        </div>
+      ) : null}
       <p className="text-xs leading-relaxed text-slate-500">
-        Press and hold the handle, then drop on a group. You can also use Move to. Nothing changes until you confirm.
+        {mode === "student"
+          ? "Open your group from the shortcut above, or scroll to the group cards. A move still asks for confirmation."
+          : "Press and hold the handle, then drop on a group. You can also use Move to. Nothing changes until you confirm."}
       </p>
 
       <DndContext
@@ -437,8 +461,8 @@ export function SubmissionGroupBoard({
         onDragCancel={() => setDragging(null)}
         onDragEnd={onDragEnd}
       >
-        <div className="space-y-5">
-          <section className="space-y-2">
+        <div className="flex flex-col gap-5">
+          <section className={mode === "student" ? "order-2 space-y-2" : "order-1 space-y-2"} id="submission-waiting">
             <div>
               <h4 className="font-heading text-sm font-bold text-slate-900">Unassigned</h4>
               <p className="text-xs text-slate-500">
@@ -466,7 +490,11 @@ export function SubmissionGroupBoard({
                       mine={member.userId === viewerUserId}
                       fromGroupId={UNASSIGNED}
                       selectEpoch={selectEpoch}
-                      options={data.groupOptions}
+                      options={
+                        mode === "lecturer"
+                          ? data.groupOptions
+                          : data.groupOptions.filter((option) => !option.projectStarted)
+                      }
                       allowUnassigned={false}
                       onMove={(toGroupId) =>
                         requestMove({
@@ -491,7 +519,10 @@ export function SubmissionGroupBoard({
               />
             ) : null}
           </section>
-          <section className="space-y-2">
+          <section
+            id="submission-groups"
+            className={mode === "student" ? "order-1 space-y-2" : "order-2 space-y-2"}
+          >
             <div>
               <h4 className="font-heading text-sm font-bold text-slate-900">Groups</h4>
               <p className="text-xs text-slate-500">
@@ -507,7 +538,8 @@ export function SubmissionGroupBoard({
               tone="group"
               count={group.memberCount}
               max={group.maxMembers}
-              locked={locked}
+              locked={locked || (mode === "student" && group.projectStarted && group.id !== prepareGroupId)}
+              projectStarted={group.projectStarted}
               canDelete={mode === "lecturer" && group.memberCount === 0}
               onDelete={() => setPendingDelete({ id: group.id, name: group.name })}
               yours={mode === "student" && group.id === prepareGroupId}
@@ -519,6 +551,12 @@ export function SubmissionGroupBoard({
                     onClick={() => {
                       if (group.id === prepareGroupId) {
                         onPrepareProject?.();
+                        return;
+                      }
+                      if (group.projectStarted) {
+                        toast.message(
+                          "This group has already started a project. Ask your lecturer if you need to join it.",
+                        );
                         return;
                       }
                       toast.message("Join this group before preparing the project.");
@@ -537,11 +575,23 @@ export function SubmissionGroupBoard({
                 <MemberCard
                   key={member.userId}
                   member={member}
-                  draggable={!locked && (mode === "lecturer" || member.userId === viewerUserId)}
+                  draggable={
+                    !locked &&
+                    (mode === "lecturer" ||
+                      (member.userId === viewerUserId && !group.projectStarted))
+                  }
                   mine={member.userId === viewerUserId}
+                  stayNote={
+                    mode === "student" && member.userId === viewerUserId && group.projectStarted
+                      ? "Only your lecturer can move you now."
+                      : null
+                  }
                   fromGroupId={group.id}
                   selectEpoch={selectEpoch}
-                  options={data.groupOptions.filter((option) => option.id !== group.id)}
+                  options={(mode === "lecturer"
+                    ? data.groupOptions
+                    : data.groupOptions.filter((option) => !option.projectStarted)
+                  ).filter((option) => option.id !== group.id)}
                   allowUnassigned={mode === "lecturer"}
                   onMove={(toGroupId) =>
                     requestMove({
@@ -648,6 +698,7 @@ function GroupColumn({
   canDelete,
   onDelete,
   yours = false,
+  projectStarted = false,
   footer,
   children,
 }: {
@@ -660,6 +711,7 @@ function GroupColumn({
   canDelete: boolean;
   onDelete?: () => void;
   yours?: boolean;
+  projectStarted?: boolean;
   footer?: ReactNode;
   children: ReactNode;
 }) {
@@ -694,6 +746,11 @@ function GroupColumn({
                 Full
               </span>
             ) : null}
+            {projectStarted ? (
+              <span className="inline-flex shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] leading-4 font-bold tracking-wide text-violet-800 uppercase">
+                Project started
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
             <Users className="h-3 w-3 shrink-0" />
@@ -716,9 +773,17 @@ function GroupColumn({
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1",
+          "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-auto pr-1",
           tone === "pool" ? "max-h-[32rem]" : "max-h-80",
         )}
+        onWheel={(event) => {
+          const el = event.currentTarget;
+          const canScroll = el.scrollHeight > el.clientHeight + 1;
+          if (canScroll) return;
+          const scrolling = document.scrollingElement;
+          if (!scrolling) return;
+          scrolling.scrollTop += event.deltaY;
+        }}
       >
         {droppable.isOver ? (
           <p className="rounded-lg border border-dashed border-sky-400 bg-sky-100 px-2 py-2 text-center text-xs font-semibold text-sky-800">
@@ -758,6 +823,7 @@ function MemberCard({
   member,
   draggable,
   mine,
+  stayNote = null,
   fromGroupId,
   selectEpoch,
   options,
@@ -767,6 +833,7 @@ function MemberCard({
   member: SubmissionMember;
   draggable: boolean;
   mine: boolean;
+  stayNote?: string | null;
   fromGroupId: string;
   selectEpoch: number;
   options: SubmissionGroupsPayload["groupOptions"];
@@ -824,14 +891,17 @@ function MemberCard({
               <SelectItem
                 key={option.id}
                 value={option.id}
-                disabled={option.memberCount >= option.maxMembers}
+                disabled={option.memberCount >= option.maxMembers || option.projectStarted}
               >
                 {option.name}
                 {option.memberCount >= option.maxMembers ? " (full)" : ""}
+                {option.projectStarted ? " (project started)" : ""}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+      ) : stayNote ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{stayNote}</p>
       ) : null}
     </div>
   );

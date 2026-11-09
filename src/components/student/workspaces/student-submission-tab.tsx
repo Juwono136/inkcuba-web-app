@@ -1,9 +1,10 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ArrowRight } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { InkcubaLoader } from "@/components/ui/inkcuba-loader";
@@ -37,7 +38,6 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const submissionId = searchParams.get("submission");
   const view = searchParams.get("view");
   const [q, setQ] = useState("");
@@ -56,6 +56,19 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
     }, 350);
     return () => window.clearTimeout(timer);
   }, [q]);
+
+  async function openProjectPage(submission: string) {
+    try {
+      const response = await fetch(
+        `/api/student/workspaces/${workspaceId}/submissions/${submission}/project`,
+        { method: "POST" },
+      );
+      const opened = await readPayload<{ id: string }>(response, "Unable to open the project");
+      router.push(`/dashboard/student/projects/${opened.id}?source=submission`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to open the project");
+    }
+  }
 
   function navigate(id: string | null, nextView?: "groups" | "prepare") {
     const params = new URLSearchParams(searchParams.toString());
@@ -85,6 +98,7 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
       return readPayload<SubmissionListPage>(response, "Failed to load submissions");
     },
     enabled: !submissionId,
+    placeholderData: keepPreviousData,
   });
 
   const detailQuery = useQuery({
@@ -128,7 +142,13 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
             {prepare.blockedReason}
           </div>
         ) : (
-          <PreparePanel item={item} prepare={prepare} />
+          <PreparePanel
+            item={item}
+            prepare={prepare}
+            onOpen={() => {
+              void openProjectPage(item.id);
+            }}
+          />
         )}
       </div>
     );
@@ -152,7 +172,19 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
           </div>
         ) : (
           <>
-            <SubmissionDetailCard item={item} />
+            <SubmissionDetailCard
+              item={item}
+              afterMeta={
+                item.type === "GROUP" ? (
+                  <StudentGroupShortcut
+                    prepare={prepare}
+                    onPrepare={() => {
+                      void openProjectPage(item.id);
+                    }}
+                  />
+                ) : null
+              }
+            />
             {item.type === "GROUP" ? (
               <SubmissionGroupBoard
                 workspaceId={workspaceId}
@@ -162,16 +194,15 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
                 viewerUserId={detailQuery.data?.viewerUserId}
                 prepareGroupId={prepare.myGroup?.id ?? null}
                 onPrepareProject={() => {
-                  void queryClient.invalidateQueries({
-                    queryKey: ["student-submission", workspaceId, submissionId],
-                  });
-                  navigate(item.id, "prepare");
+                  void openProjectPage(item.id);
                 }}
               />
             ) : (
               <PrepareProjectBanner
                 prepare={prepare}
-                onOpen={() => navigate(item.id, "prepare")}
+                onOpen={() => {
+                  void openProjectPage(item.id);
+                }}
               />
             )}
           </>
@@ -187,7 +218,7 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
       <div>
         <h2 className="font-heading text-xl font-bold text-slate-900">Submissions</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Join a group when required, then prepare your project. Submit is coming soon.
+          Join a group when required, then prepare and submit your project.
         </p>
       </div>
       <SubmissionToolbar
@@ -277,6 +308,52 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
   );
 }
 
+function StudentGroupShortcut({
+  prepare,
+  onPrepare,
+}: {
+  prepare: SubmissionPrepareState;
+  onPrepare: () => void;
+}) {
+  const group = prepare.myGroup;
+  const ready = Boolean(group && group.memberCount >= 2 && prepare.canPrepare);
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-900">
+          {group ? `You are in ${group.name}` : "Choose a group, then prepare the project"}
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+          {group?.projectStarted
+            ? "This group has started a project. You stay here unless your lecturer moves you."
+            : "Jump to the groups without scrolling through the description. After a project starts, only your lecturer can move members."}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
+          className="border-slate-900"
+          onClick={() => {
+            document.getElementById("submission-groups")?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }}
+        >
+          Go to groups
+        </Button>
+        {ready ? (
+          <Button type="button" className="bg-inkcuba-cyan hover:bg-sky-600" onClick={onPrepare}>
+            Prepare project
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function PrepareProjectBanner({
   prepare,
   onOpen,
@@ -295,7 +372,9 @@ function PrepareProjectBanner({
         </h2>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">
           {prepare.canPrepare
-            ? "Open the project page for this submission. Submit stays closed until that feature is ready."
+            ? prepare.canSubmitLater
+              ? "Open the project page to save a draft or submit while the window is open."
+              : "You can still prepare and save a draft. Submit stays closed until the lecturer’s schedule allows it."
             : prepare.blockedReason}
         </p>
       </div>
@@ -315,9 +394,11 @@ function PrepareProjectBanner({
 function PreparePanel({
   item,
   prepare,
+  onOpen,
 }: {
   item: SubmissionRecord;
   prepare: SubmissionPrepareState;
+  onOpen: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -348,29 +429,7 @@ function PreparePanel({
           </ul>
         </section>
       ) : null}
-      <div className="rounded-2xl border-2 border-dashed border-inkcuba-navy bg-gradient-to-br from-amber-50 via-white to-sky-50 p-6 shadow-inkcuba">
-        <div className="flex items-start gap-3">
-          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-inkcuba-orange" />
-          <div>
-            <p className="text-xs font-bold tracking-[0.14em] text-inkcuba-orange uppercase">
-              Coming soon
-            </p>
-            <h2 className="mt-1 font-heading text-xl font-bold text-slate-900">
-              Prepare project
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-              Portfolio and project submit will open here. You can review the slot
-              and your group now.
-            </p>
-            <p className="mt-3 text-sm font-medium text-slate-800">
-              {prepare.blockedReason}
-            </p>
-            <Button type="button" className="mt-4" disabled>
-              Submit project
-            </Button>
-          </div>
-        </div>
-      </div>
+      <PrepareProjectBanner prepare={prepare} onOpen={onOpen} />
     </div>
   );
 }

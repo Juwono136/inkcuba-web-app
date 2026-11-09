@@ -106,6 +106,8 @@ export type SubmissionGroupCard = {
   name: string;
   maxMembers: number;
   memberCount: number;
+  /** A student project already exists for this group. */
+  projectStarted: boolean;
   members: SubmissionMember[];
 };
 
@@ -122,6 +124,7 @@ export type SubmissionGroupOption = {
   name: string;
   memberCount: number;
   maxMembers: number;
+  projectStarted: boolean;
 };
 
 export type SubmissionGroupsPayload = {

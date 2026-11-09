@@ -867,6 +867,9 @@ async function hardDeleteWorkspaceInternal(
   const descriptionKeys = extractDescriptionImageKeys(row.description);
   const backgroundKey = row.backgroundImageKey;
 
+  const { preserveProjectSnapshots } = await import("@/lib/projects/service");
+  await preserveProjectSnapshots({ workspaceId: row.id });
+
   await db.delete(workspace).where(eq(workspace.id, row.id));
 
   await deleteWorkspaceObjects([

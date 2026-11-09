@@ -99,10 +99,12 @@ export function SubmissionDetailCard({
   item,
   actions,
   emphasis = "quiet",
+  afterMeta,
 }: {
   item: SubmissionRecord;
   actions?: ReactNode;
   emphasis?: "quiet" | "panel";
+  afterMeta?: ReactNode;
 }) {
   return (
     <section
@@ -151,6 +153,7 @@ export function SubmissionDetailCard({
           }
         />
       </dl>
+      {afterMeta ? <div className="border-t border-slate-100 px-4 py-4 sm:px-5">{afterMeta}</div> : null}
       <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
         <p className="text-[11px] font-bold tracking-[0.12em] text-slate-500 uppercase">
           Description

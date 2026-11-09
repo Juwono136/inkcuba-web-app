@@ -38,10 +38,11 @@ export function ScrollToTop() {
           onClick={scrollToTop}
           aria-label="Scroll to top"
           className={cn(
-            "fixed right-4 bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full",
+            // Stay clear of the mobile workspace tab bar.
+            "fixed right-4 bottom-24 z-50 flex h-12 w-12 items-center justify-center rounded-full",
             "border-2 border-slate-900 bg-sky-500 text-white shadow-inkcuba",
             "transition-colors hover:bg-sky-600 hover:shadow-inkcuba-hover",
-            "sm:right-6 sm:bottom-8",
+            "lg:right-6 lg:bottom-8",
           )}
         >
           <ArrowUp className="h-5 w-5" />

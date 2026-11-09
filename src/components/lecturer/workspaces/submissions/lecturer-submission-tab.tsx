@@ -24,6 +24,7 @@ import {
   SubmissionDetailCard,
   SubmissionListCard,
 } from "@/components/workspaces/submission-cards";
+import { SubmissionProjectReview } from "@/components/lecturer/workspaces/submissions/submission-project-review";
 import { SubmissionGroupBoard } from "@/components/workspaces/submission-group-board";
 import { SubmissionPager } from "@/components/workspaces/submission-pager";
 import { SubmissionToolbar } from "@/components/workspaces/submission-toolbar";
@@ -247,6 +248,7 @@ export function LecturerSubmissionTab({ workspaceId }: LecturerSubmissionTabProp
                 </>
               }
             />
+            <SubmissionProjectReview workspaceId={workspaceId} submissionId={item.id} />
             {item.type === "GROUP" ? (
               <SubmissionGroupBoard
                 workspaceId={workspaceId}

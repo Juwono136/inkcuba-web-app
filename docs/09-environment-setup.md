@@ -6,6 +6,7 @@
 - PostgreSQL
 - Redis
 - SeaweedFS (or compatible object storage endpoint)
+- `ffmpeg` and `ffprobe` on `PATH` (required only for student project video uploads; images and documents work without them)
 - SMTP mailbox (Gmail App Password recommended for local/dev)
 
 ---

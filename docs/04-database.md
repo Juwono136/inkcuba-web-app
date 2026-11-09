@@ -31,7 +31,8 @@ Defined in `src/db/schema/enums.ts`:
 | Enum | Values |
 |---|---|
 | `user_role` | `STUDENT`, `LECTURER`, `ADMIN` |
-| `portfolio_status` | `DRAFT`, `PENDING_REVIEW`, `REVISION_REQUIRED`, `APPROVED`, `TAKEDOWN`, `ARCHIVED` |
+| `portfolio_status` | `DRAFT`, `SUBMITTED`, `IN_REVIEW`, `NEED_REVISION`, `REVISED`, `PUBLISHED`, `TAKEN_DOWN`, `ARCHIVED`. Older values `PENDING_REVIEW`, `REVISION_REQUIRED`, `APPROVED`, `TAKEDOWN` stay in the enum so existing databases keep working |
+| `portfolio_document_role` | `PROJECT` (one required file), `ADDITIONAL` (up to 3) |
 | `assignment_type` | `INDIVIDUAL`, `GROUP` |
 | `assignment_status` | `DRAFT`, `ACTIVE`, `CLOSED` |
 | `assignment_schedule_mode` | `OPEN` (no deadline), `WINDOW` (opens_at–closes_at) |
@@ -197,18 +198,19 @@ Also live: `assignment` (submission slot), `assignment_group`, `assignment_group
 
 `assignment_group_member` stores `assignment_id` with a unique `(assignment_id, user_id)` so one student cannot sit in two groups of the same submission. Removing a workspace member deletes those group rows in the same transaction. Group moves lock the submission row. Random assignment replaces groups inside one transaction. Adding groups also locks the submission row and inserts the requested empty groups in one transaction (1–50 per request, 200 groups maximum). Each group's `max_members` follows `max_group_size`. Total seats on the board is the sum of those capacities, so three groups with a size of 2 show 6 seats.
 
-> Scoring and portfolio submit stay Coming Soon. The prepare page only explains why submit is still blocked.
+Deleting a submission or hard-deleting a workspace does not delete student projects. Those foreign keys use `ON DELETE SET NULL`. Snapshot columns on `portfolio` keep the workspace name, class, semester, submission title, lecturer, campus, major, batch, and academic semester. Project files in SeaweedFS are left in place.
+
+Scoring and lecturer accept/reject buttons are not built yet. The lecturer submission page lists projects and their status only.
 
 ---
 
 ## Portfolio tables (`src/db/schema/portfolios.ts`)
 
-Supports academic portfolio records, media assets, and review/publication lifecycle using `portfolio_status`.
+One project per student on an individual submission (`assignment_id` + `submitted_by_id`, `group_id` null). One shared project per group (`assignment_id` + `group_id`). `workspace_id` and `assignment_id` are optional so a project remains after the source is deleted.
 
-Typical future flow:
+Student writes: save a draft, submit (`DRAFT` → `SUBMITTED`), resubmit (`NEED_REVISION` → `REVISED`), archive, and hard-delete when allowed. Lecturer status changes (`IN_REVIEW`, `NEED_REVISION`, `PUBLISHED`, `TAKEN_DOWN`) exist in the service and are not wired to buttons.
 
-`DRAFT` → `PENDING_REVIEW` → (`REVISION_REQUIRED` ↔) → `APPROVED` → public exhibition  
-(also supports `TAKEDOWN` / `ARCHIVED`)
+`portfolio_image` holds 1–3 overview images. `portfolio_video` holds one optional overview video. `portfolio_document.role` is `PROJECT` or `ADDITIONAL`. `portfolio_link` holds up to 3 extra links. `portfolio_contributor` records who may see the project after leaving a group or after the submission is removed (`group_id` / `assignment_id` / `workspace_id` become null via `ON DELETE SET NULL`; snapshots keep the labels). Live group edits stay limited to current `assignment_group_member` rows. Hard delete cascades DB children and removes matching SeaweedFS keys under `projects/{portfolioId}/`.
 
 ---
 
@@ -229,6 +231,7 @@ Audit log table for security/operational events. Helpers live under `src/lib/aud
 | `0009_workspace_product_fields.sql` | Workspace name/class/semester/background reshape |
 | `0010_workspace_status.sql` | Replace `is_active` with `workspace_status` enum (`DRAFT`/`ACTIVE`/`INACTIVE`) |
 | `0011_workspace_people.sql` | People tab: member source fields, import jobs/items, invitation tokens, email outbox |
+| `0014_student_projects.sql` | Project statuses, snapshot columns, optional workspace/submission links, document role, overview video, unique project per student or group |
 
 Migration journal: `drizzle/meta/_journal.json`.
 

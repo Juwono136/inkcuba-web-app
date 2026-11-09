@@ -74,7 +74,7 @@ Behavior:
 3. Proxy fetches with server credentials and streams bytes (`Cache-Control` enabled).
 4. Avatar load error → fallback initials.
 
-Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `workspaces/tmp/{lecturerId}/`).
+Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `workspaces/tmp/{lecturerId}/`), and `projects/`.
 
 ---
 
@@ -87,7 +87,19 @@ Allowed proxy prefixes: `avatars/`, `workspaces/` (includes tmp drafts under `wo
 | Create-time drafts | `workspaces/tmp/{lecturerId}/` | **5MB** | Used while creating a workspace before an id exists |
 | People Excel imports | `workspaces/{workspaceId}/imports/{jobId}/source.xlsx` | **5MB** | Deleted after successful commit; cancelled jobs cleaned on next upload |
 
-Submission descriptions are rich text only (no image upload), so this phase does not write submission files to SeaweedFS. Future portfolio uploads will use the same replace/delete rules as workspace media.
+Submission descriptions are rich text only (no image upload). Student project files use a separate prefix and are not deleted when a workspace or submission is removed.
+
+## Project media (SeaweedFS)
+
+| Asset | Prefix | Max size | Notes |
+|---|---|---|---|
+| Overview images | `projects/{portfolioId}/` | **12MB** each, 1–3 required on submit | JPEG, PNG, WebP, TIFF. `sharp` keeps the original dimensions until the longest edge would pass **4096 px**, then writes JPEG (mozjpeg, quality 90) and strips metadata. Replace uploads the new object, saves the key, then deletes the old one |
+| Overview video | `projects/{portfolioId}/` | **100MB**, **3 minutes**, optional, one file | MP4, WebM, or MOV. The server re-encodes with `ffmpeg` to H.264 CRF 20 at the same resolution (even dimensions), then deletes the original. If `ffmpeg` is not installed, the upload is rejected with a clear message |
+| Documents | `projects/{portfolioId}/` | **20MB** each | One required project file and up to 3 additional files. PDF, JPG, JPEG, PNG, EPS, PSD, TIFF, WebP, SVG, CDR. Raster, PDF, and SVG are checked by magic bytes. SVG scripts are stripped. EPS, PSD, and CDR are stored as-is after extension, size, and an HTML-look rejection. Raster documents use the same JPEG compression as overview images |
+
+Hard-deleting a student project removes every stored overview image, video, and document key for that portfolio after the database row is deleted, so SeaweedFS does not keep orphans. Archive leaves objects in place.
+
+`ffmpeg` and `ffprobe` must be on the server `PATH` for video uploads. Image and document uploads do not need them.
 
 Default background in UI (no storage object): brand gradient + inkcuba logo.
 

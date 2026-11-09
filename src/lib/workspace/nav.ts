@@ -54,11 +54,9 @@ export function getWorkspacePrimaryNav(
       icon: "workspaces",
     },
     {
-      href: "/dashboard/student/portfolios",
-      label: "Portfolios",
+      href: "/dashboard/student/projects",
+      label: "Project lists",
       icon: "portfolios",
-      disabled: true,
-      badge: "Soon",
     },
   ];
 }
@@ -138,8 +136,9 @@ export function getWorkspaceBreadcrumbs(
     return crumbs;
   }
 
-  if (pathname.includes("/portfolios")) {
-    crumbs.push({ label: "Portfolios" });
+  if (pathname.startsWith("/dashboard/student/projects")) {
+    crumbs.push({ label: "Project lists", href: "/dashboard/student/projects" });
+    if (pathname !== "/dashboard/student/projects") crumbs.push({ label: "Project" });
     return crumbs;
   }
 

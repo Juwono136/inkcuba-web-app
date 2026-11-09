@@ -436,6 +436,8 @@ export async function deleteLecturerSubmission(input: {
 }): Promise<void> {
   await loadOwnedWorkspace(input.workspaceId, input.lecturerId);
   const current = await loadSubmission(input.workspaceId, input.assignmentId);
+  const { preserveProjectSnapshots } = await import("@/lib/projects/service");
+  await preserveProjectSnapshots({ assignmentId: current.id });
   await db.delete(assignment).where(eq(assignment.id, current.id));
   await createAuditLog({
     actorId: input.meta.actorId,
@@ -583,11 +585,18 @@ export async function getSubmissionPrepareState(input: {
     .where(eq(assignmentGroupMember.groupId, mine.groupId));
 
   const memberCount = people.length;
+  const { portfolio } = await import("@/db/schema/portfolios");
+  const [started] = await db
+    .select({ id: portfolio.id })
+    .from(portfolio)
+    .where(eq(portfolio.groupId, mine.groupId))
+    .limit(1);
   const myGroup: SubmissionGroupCard = {
     id: mine.groupId,
     name: mine.name,
     maxMembers: mine.maxMembers,
     memberCount,
+    projectStarted: Boolean(started),
     members: people.map((person) => ({
       userId: person.id,
       name: person.name,
@@ -624,15 +633,13 @@ function prepareBlockReason(input: {
   memberCount: number;
   type: SubmissionRecord["type"];
 }): string | null {
-  if (input.status === "CLOSED") return "This submission is closed.";
-  if (input.windowState === "UPCOMING") {
-    return "The submission window has not opened yet.";
+  if (input.status === "CLOSED") {
+    return "This submission is closed. You can still open an existing project from Project lists.";
   }
-  if (input.windowState === "ENDED") return "The submission window has ended.";
   if (input.type === "GROUP" && input.memberCount < 2) {
     return "A group needs at least 2 members before the project can be submitted. You can still prepare it.";
   }
-  return "Project submit is coming soon.";
+  return null;
 }
 
 export async function getLecturerCurrentSubmission(input: {

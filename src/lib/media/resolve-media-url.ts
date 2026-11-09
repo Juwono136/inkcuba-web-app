@@ -3,7 +3,7 @@
  * Browsers must never hit STORAGE_ENDPOINT directly (Basic Auth prompt).
  */
 
-const ALLOWED_PREFIXES = ["avatars/", "workspaces/"] as const;
+const ALLOWED_PREFIXES = ["avatars/", "workspaces/", "projects/"] as const;
 const MEDIA_PROXY_PREFIX = "/api/media/";
 
 export function extractStorageMediaKey(

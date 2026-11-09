@@ -5,6 +5,7 @@ import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { user as userTable } from "@/db/schema/auth";
+import { portfolio } from "@/db/schema/portfolios";
 import {
   assignment,
   assignmentGroup,
@@ -313,6 +314,15 @@ export async function listSubmissionGroups(input: {
 
   const unassignedTotal = Number(unassignedTotalRows[0]?.value ?? 0);
   const groupTotal = groupRows.length;
+  const startedRows = await db
+    .select({ groupId: portfolio.groupId })
+    .from(portfolio)
+    .where(
+      and(eq(portfolio.assignmentId, submission.id), sql`${portfolio.groupId} is not null`),
+    );
+  const startedGroups = new Set(
+    startedRows.map((row) => row.groupId).filter((id): id is string => Boolean(id)),
+  );
   const seatCapacity = groupRows.reduce(
     (sum, group) => sum + group.maxMembers,
     0,
@@ -339,6 +349,7 @@ export async function listSubmissionGroups(input: {
         name: group.name,
         maxMembers: group.maxMembers,
         memberCount: counts.get(group.id) ?? 0,
+        projectStarted: startedGroups.has(group.id),
         members: membersByGroup.get(group.id) ?? [],
       })),
       total: groupTotal,
@@ -353,6 +364,7 @@ export async function listSubmissionGroups(input: {
           name: "Unassigned",
           maxMembers: unassignedTotal,
           memberCount: unassignedTotal,
+          projectStarted: false,
           members: unassignedRows.map(mapUser),
         },
       ],
@@ -366,6 +378,7 @@ export async function listSubmissionGroups(input: {
       name: group.name,
       memberCount: counts.get(group.id) ?? 0,
       maxMembers: group.maxMembers,
+      projectStarted: startedGroups.has(group.id),
     })),
   };
 }
@@ -575,6 +588,16 @@ export async function randomizeSubmissionGroups(input: {
     if (submission.status === "CLOSED") {
       throw new ValidationError("Closed submissions cannot be changed");
     }
+    const [started] = await tx
+      .select({ id: portfolio.id })
+      .from(portfolio)
+      .where(eq(portfolio.assignmentId, submission.id))
+      .limit(1);
+    if (started) {
+      throw new ValidationError(
+        "A group has already started a project. Move students one by one instead of reshuffling.",
+      );
+    }
 
     const students = shuffle(await activeStudentIds(tx, input.workspaceId));
     const slots = groupSlotCount(students.length, submission.maxGroupSize);
@@ -697,6 +720,28 @@ export async function moveSubmissionMember(input: {
           ),
         )
         .limit(1);
+
+      if (input.actor === "student") {
+        const startedRows = await tx
+          .select({ groupId: portfolio.groupId })
+          .from(portfolio)
+          .where(
+            and(eq(portfolio.assignmentId, submission.id), sql`${portfolio.groupId} is not null`),
+          );
+        const started = new Set(
+          startedRows.map((row) => row.groupId).filter((id): id is string => Boolean(id)),
+        );
+        if (existing[0] && started.has(existing[0].groupId)) {
+          throw new ForbiddenError(
+            "Your group has started a project. Only your lecturer can move you to another group.",
+          );
+        }
+        if (input.toGroupId && started.has(input.toGroupId)) {
+          throw new ForbiddenError(
+            "That group has already started a project. Ask your lecturer if you need to join it.",
+          );
+        }
+      }
 
       if (input.toGroupId == null) {
         if (!existing[0]) return { moved: false };

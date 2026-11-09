@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { WorkspaceMobileNav } from "@/components/workspace/workspace-mobile-nav";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 import { WorkspaceToolbar } from "@/components/workspace/workspace-toolbar";
 import {
@@ -111,13 +112,14 @@ export function WorkspaceShell({ role, children }: WorkspaceShellProps) {
             sidebarOpen={hydrated ? toggleShowsOpen : true}
             onToggleSidebar={handleToggle}
           />
-          <div className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="w-full min-w-0 flex-1 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
             {children}
           </div>
         </div>
       </div>
 
       <SiteFooter />
+      <WorkspaceMobileNav role={role} />
     </div>
   );
 }

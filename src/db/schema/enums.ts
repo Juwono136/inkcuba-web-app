@@ -13,6 +13,17 @@ export const portfolioStatusEnum = pgEnum("portfolio_status", [
   "APPROVED",
   "TAKEDOWN",
   "ARCHIVED",
+  "SUBMITTED",
+  "IN_REVIEW",
+  "NEED_REVISION",
+  "REVISED",
+  "PUBLISHED",
+  "TAKEN_DOWN",
+]);
+
+export const portfolioDocumentRoleEnum = pgEnum("portfolio_document_role", [
+  "PROJECT",
+  "ADDITIONAL",
 ]);
 
 export const assignmentTypeEnum = pgEnum("assignment_type", [
