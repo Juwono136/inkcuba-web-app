@@ -62,6 +62,15 @@ export const SUBMISSION_TYPE_LABELS: Record<SubmissionType, string> = {
   GROUP: "Group",
 };
 
+export type SubmissionRubricComponent = {
+  id: string;
+  name: string;
+  description: string | null;
+  weightPercent: number;
+  sortOrder: number;
+  maxPoints: number;
+};
+
 export type SubmissionRecord = {
   id: string;
   workspaceId: string;
@@ -76,6 +85,10 @@ export type SubmissionRecord = {
   closesAt: string | null;
   status: SubmissionStatus;
   windowState: SubmissionWindowState;
+  rubric: SubmissionRubricComponent[];
+  rubricLocked: boolean;
+  /** True once any project has been submitted / reviewed / published — type & group method freeze. */
+  structureLocked: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -108,6 +121,11 @@ export type SubmissionGroupCard = {
   memberCount: number;
   /** A student project already exists for this group. */
   projectStarted: boolean;
+  /**
+   * Group project is SUBMITTED / IN_REVIEW / REVISED / PUBLISHED.
+   * Student and lecturer moves stay closed until NEED_REVISION (or a new draft).
+   */
+  moderationLocked: boolean;
   members: SubmissionMember[];
 };
 
@@ -125,6 +143,7 @@ export type SubmissionGroupOption = {
   memberCount: number;
   maxMembers: number;
   projectStarted: boolean;
+  moderationLocked: boolean;
 };
 
 export type SubmissionGroupsPayload = {
@@ -135,6 +154,10 @@ export type SubmissionGroupsPayload = {
   maxGroupSize: number | null;
   activeStudentCount: number;
   seatCapacity: number;
+  /** True when any group already has a project (blocks random reshuffle). */
+  hasStartedProjects: boolean;
+  /** True when any project is in review / published (structure & move policy active). */
+  hasModerationPipeline: boolean;
   groups: SubmissionGroupPage;
   unassigned: SubmissionGroupPage;
   groupOptions: SubmissionGroupOption[];
@@ -145,6 +168,12 @@ export type SubmissionPrepareState = {
   canSubmitLater: boolean;
   blockedReason: string | null;
   myGroup: SubmissionGroupCard | null;
+  /** Existing portfolio for this student/group on the slot, when any. */
+  portfolioId: string | null;
+  projectStatus: string | null;
+  ctaLabel: string;
+  ctaTitle: string;
+  ctaDescription: string;
 };
 
 export function submissionWindowState(input: {

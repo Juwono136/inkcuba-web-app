@@ -14,6 +14,27 @@ export function readIdempotencyKey(request: NextRequest): string | null {
   return key.toLowerCase();
 }
 
+function mimeFromFileName(fileName: string, fallback: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    pdf: "application/pdf",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    tif: "image/tiff",
+    tiff: "image/tiff",
+    svg: "image/svg+xml",
+    eps: "application/postscript",
+    psd: "image/vnd.adobe.photoshop",
+    cdr: "application/octet-stream",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    mov: "video/quicktime",
+  };
+  return map[ext] || fallback;
+}
+
 export async function readUpload(request: NextRequest) {
   const form = await request.formData();
   const file = form.get("file");
@@ -22,10 +43,16 @@ export async function readUpload(request: NextRequest) {
   }
   const roleValue = String(form.get("role") ?? "ADDITIONAL");
   const role = roleValue === "PROJECT" ? "PROJECT" : "ADDITIONAL";
+  const fileName = file.name || "file";
+  const reported = file.type || "application/octet-stream";
+  const mimeType =
+    !reported || reported === "application/octet-stream"
+      ? mimeFromFileName(fileName, reported)
+      : reported;
   return {
     buffer: Buffer.from(await file.arrayBuffer()),
-    mimeType: file.type || "application/octet-stream",
-    fileName: file.name || "file",
+    mimeType,
+    fileName,
     role,
   } as const;
 }

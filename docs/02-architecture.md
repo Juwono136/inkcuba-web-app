@@ -194,6 +194,8 @@ Under production traffic: prefer horizontal app instances behind a load balancer
 
 - Production build uses `next build --webpack` because Better Auth currently has Turbopack compatibility constraints in this project.
 - Favicon assets are generated via `npm run generate:favicon` (`app/icon.png` + `apple-icon.png`; PNG-only to avoid libvips/ICO warnings on Windows).
+- `serverExternalPackages` includes `bullmq` (and binary helpers) so Next does not webpack-bundle optional Valkey peers such as `@valkey/valkey-glide`.
+- Student workspace guards live in `src/lib/workspaces/student-access.ts` (not the full `workspaces/service` graph). Post-submit emails use `src/lib/projects/notify-submit.ts` with a lazy BullMQ import in `src/lib/queues/project-queues.ts`, so list/detail APIs do not pull lecturer moderation + queue clients on every compile/request path.
 
 ---
 

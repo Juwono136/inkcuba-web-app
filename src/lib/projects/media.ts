@@ -1,6 +1,5 @@
 import "server-only";
 
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,7 +9,6 @@ import sharp from "sharp";
 
 import { ValidationError } from "@/lib/api/errors";
 import { logger } from "@/lib/logger";
-import { deleteObject, uploadObject } from "@/lib/storage/client";
 import {
   PROJECT_DOCUMENT_MAX_BYTES,
   PROJECT_IMAGE_MAX_BYTES,
@@ -18,6 +16,8 @@ import {
   PROJECT_VIDEO_MAX_BYTES,
   PROJECT_VIDEO_MAX_SECONDS,
 } from "@/lib/projects/limits";
+import { probeVideoDurationSeconds, transcodeProjectVideo } from "@/lib/projects/video-tools";
+import { deleteObject, uploadObject } from "@/lib/storage/client";
 
 const RASTER = new Set(["image/jpeg", "image/png", "image/webp", "image/tiff"]);
 
@@ -29,8 +29,12 @@ export async function deleteProjectObject(key: string | null | undefined): Promi
   if (!key || !key.startsWith("projects/")) return;
   try {
     await deleteObject(key);
-  } catch (error) {
-    logger.warn({ err: error, key }, "Project object delete failed");
+  } catch (firstError) {
+    try {
+      await deleteObject(key);
+    } catch (error) {
+      logger.warn({ err: error, previousErr: firstError, key }, "Project object delete failed after retry");
+    }
   }
 }
 
@@ -71,16 +75,18 @@ export async function storeProjectVideo(input: {
   if (!allowed.has(input.mimeType)) {
     throw new ValidationError("Video must be MP4, WebM, or MOV");
   }
+  assertVideoMagic(input.buffer, input.mimeType);
+
   const dir = await mkdtemp(path.join(tmpdir(), "inkcuba-video-"));
   const source = path.join(dir, "source");
   const output = path.join(dir, "out.mp4");
   try {
     await writeFile(source, input.buffer);
-    const duration = await probeDuration(source);
+    const duration = await probeVideoDurationSeconds(source);
     if (duration > PROJECT_VIDEO_MAX_SECONDS) {
       throw new ValidationError("Video must be 3 minutes or shorter");
     }
-    await transcode(source, output);
+    await transcodeProjectVideo(source, output);
     const compressed = await readFile(output);
     const key = `projects/${input.portfolioId}/video/${Date.now()}-${randomUUID()}.mp4`;
     await uploadObject(key, compressed, "video/mp4");
@@ -248,80 +254,14 @@ function safeName(fileName: string, ext: string): string {
   return `${cleaned}.${ext}`;
 }
 
-function run(command: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { windowsHide: true });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") {
-        reject(new ValidationError("Video processing is unavailable. Install ffmpeg on the server."));
-        return;
-      }
-      reject(error);
-    });
-    child.on("close", (code) => {
-      if (code === 0) resolve(stdout);
-      else reject(new Error(stderr || `${command} failed`));
-    });
-  });
+function assertVideoMagic(buffer: Buffer, mimeType: string) {
+  if (buffer.length < 12) throw new ValidationError("The uploaded video is not valid");
+  const webm = buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+  const ftyp = buffer.toString("ascii", 4, 8) === "ftyp";
+  if (mimeType === "video/webm") {
+    if (!webm) throw new ValidationError("The uploaded video is not a valid WebM file");
+    return;
+  }
+  if (!ftyp) throw new ValidationError("The uploaded video is not a valid MP4/MOV file");
 }
 
-async function probeDuration(file: string): Promise<number> {
-  try {
-    const output = await run("ffprobe", [
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      file,
-    ]);
-    const duration = Number(output.trim());
-    if (!Number.isFinite(duration) || duration <= 0) {
-      throw new ValidationError("Unable to read the video length");
-    }
-    return duration;
-  } catch (error) {
-    if (error instanceof ValidationError) throw error;
-    throw new ValidationError("Video processing is unavailable. Install ffmpeg on the server.");
-  }
-}
-
-async function transcode(source: string, output: string): Promise<void> {
-  try {
-    await run("ffmpeg", [
-      "-y",
-      "-i",
-      source,
-      "-c:v",
-      "libx264",
-      "-crf",
-      "20",
-      "-preset",
-      "medium",
-      "-pix_fmt",
-      "yuv420p",
-      "-vf",
-      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "160k",
-      "-movflags",
-      "+faststart",
-      output,
-    ]);
-  } catch (error) {
-    if (error instanceof ValidationError) throw error;
-    logger.error({ err: error }, "Project video transcode failed");
-    throw new ValidationError("Unable to process this video. Use MP4, WebM, or MOV.");
-  }
-}

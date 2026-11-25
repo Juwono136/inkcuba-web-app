@@ -63,11 +63,7 @@ import type {
   WorkspaceRecord,
   WorkspaceStatus,
 } from "@/lib/workspaces/types";
-import {
-  isWorkspaceOpenToStudents,
-  WORKSPACE_LIST_DEFAULT_PAGE_SIZE,
-  WORKSPACE_STATUS_LABELS,
-} from "@/lib/workspaces/types";
+import { WORKSPACE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/workspaces/types";
 
 function generateInviteCode(): string {
   return generateWorkspaceInviteCode();
@@ -259,59 +255,10 @@ async function loadOwnedWorkspace(
  * Server-side gate for any student-facing workspace action (join, list
  * membership content, submit, etc.). Draft and Inactive are never open.
  */
-export async function assertStudentCanAccessWorkspace(
-  workspaceId: string,
-): Promise<typeof workspace.$inferSelect> {
-  const rows = await db
-    .select()
-    .from(workspace)
-    .where(eq(workspace.id, workspaceId))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row || row.deletedAt) throw new NotFoundError("Workspace not found");
-
-  if (!isWorkspaceOpenToStudents(row.status)) {
-    const label = WORKSPACE_STATUS_LABELS[row.status];
-    throw new ForbiddenError(
-      row.status === "DRAFT"
-        ? "This workspace is still a draft and is not open to students yet."
-        : `This workspace is ${label.toLowerCase()} and cannot be accessed by students.`,
-    );
-  }
-
-  return row;
-}
-
-export async function assertStudentCanAccessWorkspaceByInviteCode(
-  inviteCode: string,
-): Promise<typeof workspace.$inferSelect> {
-  const code = inviteCode.trim().toLowerCase();
-  if (!isValidWorkspaceInviteCode(code)) {
-    throw new ValidationError(
-      "Invite code must be exactly 8 lowercase letters or digits",
-    );
-  }
-
-  const rows = await db
-    .select()
-    .from(workspace)
-    .where(eq(workspace.inviteCode, code))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row || row.deletedAt) throw new NotFoundError("Invalid invite code");
-
-  if (!isWorkspaceOpenToStudents(row.status)) {
-    throw new ForbiddenError(
-      row.status === "DRAFT"
-        ? "This workspace is still a draft and is not open to students yet."
-        : "This workspace is inactive and cannot be accessed by students.",
-    );
-  }
-
-  return row;
-}
+export {
+  assertStudentCanAccessWorkspace,
+  assertStudentCanAccessWorkspaceByInviteCode,
+} from "@/lib/workspaces/student-access";
 
 async function loadLecturerInfo(
   lecturerId: string,

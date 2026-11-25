@@ -328,34 +328,43 @@ Same as above for create-form drafts under `workspaces/tmp/{lecturerId}/`.
 
 ### Submissions
 
-Lecturer routes require the workspace owner. Student routes require an **Active** membership on an **Active**, non-trashed workspace. Draft slots are hidden from students. Group moves are idempotent when the student is already in the target group, and a unique `(assignment_id, user_id)` index rejects duplicates. Description HTML is sanitized (no images).
+Lecturer routes require the workspace owner. Student routes require an **Active** membership on an **Active**, non-trashed workspace. Draft slots are hidden from students. Group moves are idempotent when the student is already in the target group, and a unique `(assignment_id, user_id)` index rejects duplicates. Moves are refused for both lecturer and student when the source or target group has a portfolio in `SUBMITTED` / `IN_REVIEW` / `REVISED` / `PUBLISHED` (unlocked again on `DRAFT` / `NEED_REVISION`). Description HTML is sanitized (no images).
 
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/lecturer/workspaces/[id]/submissions` | `page`, `pageSize`, `q`, `status`, `type`, `sortBy` (`updatedAt` \| `title` \| `opensAt` \| `maxScore` \| `status`), `sortDir` (`asc` \| `desc`) |
-| POST | `/api/lecturer/workspaces/[id]/submissions` | Create a slot. Body `status` is `DRAFT` or `ACTIVE` (default `DRAFT`) |
+| POST | `/api/lecturer/workspaces/[id]/submissions` | Create a slot. Body includes `status` (`DRAFT`\|`ACTIVE`, default `DRAFT`) and required `rubric[]` (`name`, `description?`, `weightPercent`); weights must total **100%** |
 | GET | `/api/lecturer/workspaces/[id]/submissions/current` | Active slot for the Info card |
-| GET/PATCH/DELETE | `.../submissions/[submissionId]` | Read, update (including `status` `DRAFT` or `ACTIVE`), or delete. Closed slots cannot be edited |
+| GET/PATCH/DELETE | `.../submissions/[submissionId]` | Read (includes `rubric`, `rubricLocked`, `structureLocked`), update (including `status` `DRAFT` or `ACTIVE` and rubric), or delete. Closed slots cannot be edited. After any project is submitted/reviewed/published, `structureLocked` freezes type + group formation method. After the first score sheet, rubric names/weights lock |
 | POST | `.../submissions/[submissionId]/publish` | Draft → Active |
 | POST | `.../submissions/[submissionId]/close` | Active → Closed |
 | GET/POST | `.../submissions/[submissionId]/groups` | List (search + pagination) or add empty groups. POST body `{ count }` (1–50). Optional `Idempotency-Key` header (UUID) returns the same groups if the request is repeated. A submission holds at most 200 groups. The row is locked for the insert |
 | POST | `.../groups/random` | Replace groups with an even random split |
-| POST | `.../groups/move` | `{ userId, toGroupId }` — `toGroupId` null unassigns |
+| POST | `.../groups/move` | `{ userId, toGroupId }` — `toGroupId` null unassigns. Blocked while the group project is in moderation or published |
 | DELETE | `.../groups/[groupId]` | Empty groups only; at least one group remains |
 | GET | `/api/student/workspaces/[id]/submissions` | Active and closed only; same `sortBy` / `sortDir` as the lecturer list |
 | GET | `.../submissions/current` | Same Info-card payload |
 | GET | `.../submissions/[submissionId]` | Detail + prepare eligibility + `viewerUserId` |
 | GET | `.../submissions/[submissionId]/groups` | Read-only board data |
-| POST | `.../submissions/[submissionId]/move` | `{ toGroupId }` — moves only the signed-in student. Refused when their current group, or the target group, already has a project. Lecturers can still move those students |
+| POST | `.../submissions/[submissionId]/move` | `{ toGroupId }` — moves only the signed-in student. Refused when their current group, or the target group, already has a project, or when that project is in moderation/published |
 | POST | `.../submissions/[submissionId]/project` | Opens or creates the student project for this slot (one per student, or one shared project per group) and returns `{ id }` |
 | GET | `/api/student/projects` | Project lists. `page`, `pageSize`, `q`, `status`, `sortBy` (`updatedAt` \| `title` \| `status`), `sortDir`. Each item includes `kind`, `canEdit`, `canDelete`, `accessLabel`, `isDetached`, and `submissionHref` when reachable |
 | GET/PATCH/DELETE | `/api/student/projects/[id]` | Read (`?source=submission\|lists` controls back navigation), save a draft, or hard-delete. PATCH sends title, description, URLs, links, and `expectedUpdatedAt`. A stale `updatedAt` is rejected. DELETE removes the row and SeaweedFS objects when the caller is allowed (draft/archived/taken-down while linked; also orphaned submitted states when the slot is gone). Live group projects require current membership for edit/archive/delete |
-| POST | `.../projects/[id]/submit` | `DRAFT` → `SUBMITTED`, or `NEED_REVISION` → `REVISED`. Optional `Idempotency-Key` (UUID). Requires an **Active** slot whose schedule window is open (`ALWAYS` / `OPEN`), required fields, and at least 2 group members when the project is shared. Refused when the window is upcoming or ended; drafts may still be saved |
-| POST | `.../projects/[id]/archive` | Sets `ARCHIVED`. Files stay. Same membership rules as edit for live group projects |
-| POST/DELETE | `.../projects/[id]/images` and `.../images/[imageId]` | Overview images (max 3). Multipart field `file` |
-| POST/DELETE | `.../projects/[id]/video` | Optional overview video. Requires `ffmpeg` on the server |
+| GET | `/api/student/projects/[id]/events` | Paginated project history for contributors (`page`, `pageSize`) |
+| POST | `.../projects/[id]/submit` | `DRAFT` → `SUBMITTED`, or `NEED_REVISION` → `REVISED`. Optional `Idempotency-Key` (UUID). Requires an **Active** slot whose schedule window is open (`ALWAYS` / `OPEN`), required fields, and at least 2 group members when the project is shared. Writes a `portfolio_event` and enqueues student + lecturer emails |
+| POST | `.../projects/[id]/archive` | Shelves `DRAFT` / `NEED_REVISION` to `ARCHIVED` (idempotent if already archived). Files stay. Records history. Live group projects require current membership |
+| POST | `.../projects/[id]/unarchive` | Restores `ARCHIVED` to previous draft/revision when allowed (falls back to `DRAFT`). Idempotent if not archived. Files stay |
+| POST | `.../projects/[id]/images` | Add overview image (max 3). Multipart field `file` |
+| POST/DELETE | `.../projects/[id]/images/[imageId]` | Replace (POST multipart) or remove overview image. Replace deletes the previous SeaweedFS object after DB commit |
+| GET | `/api/media/projects/...` | Project files. Requires session + contributor/lecturer/admin access (`private` cache) |
+| POST/DELETE | `.../projects/[id]/video` | Optional overview video (MP4/WebM/MOV). Duration ≤3 minutes via ffprobe; always re-encoded to H.264 MP4 using env / bundled `ffmpeg-static` / PATH |
 | POST/DELETE | `.../projects/[id]/documents` and `.../documents/[documentId]` | Multipart `file` plus `role` `PROJECT` or `ADDITIONAL`. A new `PROJECT` file replaces the previous one |
-| GET | `/api/lecturer/workspaces/[id]/submissions/[submissionId]/projects` | Read-only project list and status for that slot. No review actions |
+| GET | `/api/lecturer/workspaces/[id]/scoring/submissions` | Scoring slots by submission. Query: `page`, `pageSize`, `q`, `type`, `sortBy` (`awaitingReview`\|`updatedAt`\|`title`\|`maxScore`), `sortDir`. Each item includes `awaitingReview`, `needRevision`, `published`, `scoreable` (drafts excluded) |
+| GET | `/api/lecturer/workspaces/[id]/submissions/[submissionId]/projects` | Compact scoring summary for that slot (`total`, `awaitingReview`, `drafts`, `needRevision`, `published`) |
+| GET | `/api/lecturer/workspaces/[id]/projects` | Projects inside a scoring slot. Query: `page`, `pageSize`, `q`, `status` (`NEEDS_ATTENTION` default; `ALL` = submitted pipeline only, never drafts), `sortBy`, `sortDir`, `submissionId`. Each item includes `who`, `kind` (`GROUP`\|`INDIVIDUAL`), `members[]` (userId, name, nim, image), `canModerate` |
+| GET | `/api/lecturer/workspaces/[id]/projects/[portfolioId]` | Detail for moderation (images, video, documents, links, members, rubric, latest `scoreSheet`, journey flags, `neighbors` previous/next ids). Opens review (`SUBMITTED`/`REVISED` → `IN_REVIEW`) |
+| GET | `/api/lecturer/workspaces/[id]/projects/[portfolioId]/events` | Paginated project history (`page`, `pageSize`). UI loads older pages on demand |
+| POST | `.../projects/[portfolioId]/moderate` | Body `{ decision, feedback, expectedUpdatedAt, scoringMode?, groupPercent?, individualPercent?, componentScores?, memberScores? }`. Optional `Idempotency-Key`. **REVISION**: feedback required; no scores; rejected after `PROJECT_MAX_REVISIONS` (2) prior `REVISION_REQUESTED` events. **PUBLISH**: Active submission + complete rubric required; `scoringMode` + `componentScores` (group/sole rubric) required. For `GROUP_AND_INDIVIDUAL`, `memberScores[]` each include `componentScores[]` for the **same** rubric (no notes / no scalar-only individual score). Server sums member components → `individual_score`, blends finals, persists sheet + `portfolio_member_component_score`, denormalizes `grade`/`feedback`. Emails: revision → contributors (round X of 2); publish → contributors + lecturer |
 
 ### Student join & workspace detail (continued)
 

@@ -201,24 +201,26 @@ export function ProfilePhotoLightbox({
           className="relative flex h-[min(62vh,420px)] touch-none items-center justify-center overflow-hidden bg-slate-900 sm:h-[min(78vh,720px)]"
           onDoubleClick={resetView}
         >
-          <motion.img
-            key={src}
-            src={src}
-            alt={alt}
-            drag={scale > MIN_SCALE}
-            dragConstraints={containerRef}
-            dragElastic={0.08}
-            dragMomentum={false}
-            style={{
-              x,
-              y,
-              scale,
-              cursor: scale > MIN_SCALE ? "grab" : "zoom-in",
-            }}
-            whileDrag={{ cursor: "grabbing" }}
-            className="max-h-full max-w-full select-none object-contain will-change-transform"
-            draggable={false}
-          />
+          {src ? (
+            <motion.img
+              key={src}
+              src={src}
+              alt={alt}
+              drag={scale > MIN_SCALE}
+              dragConstraints={containerRef}
+              dragElastic={0.08}
+              dragMomentum={false}
+              style={{
+                x,
+                y,
+                scale,
+                cursor: scale > MIN_SCALE ? "grab" : "zoom-in",
+              }}
+              whileDrag={{ cursor: "grabbing" }}
+              className="max-h-full max-w-full select-none object-contain will-change-transform"
+              draggable={false}
+            />
+          ) : null}
           <p className="pointer-events-none absolute bottom-2.5 left-1/2 max-w-[min(100%-1.5rem,18rem)] -translate-x-1/2 truncate rounded-full bg-black/55 px-3 py-1 text-center text-[10px] text-white/80 backdrop-blur-sm sm:bottom-3 sm:max-w-none sm:px-3.5 sm:py-1.5 sm:text-[11px]">
             Use + / − to zoom
           </p>

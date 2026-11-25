@@ -27,7 +27,7 @@ import {
 import {
   assertStudentCanAccessWorkspace,
   assertStudentCanAccessWorkspaceByInviteCode,
-} from "@/lib/workspaces/service";
+} from "@/lib/workspaces/student-access";
 import type {
   WorkspaceMemberListPage,
   WorkspaceMemberRecord,

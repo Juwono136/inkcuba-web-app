@@ -69,6 +69,21 @@ function parseDateTime(value: string): Date | null {
   return date;
 }
 
+export const rubricComponentWriteSchema = z.object({
+  id: z.string().trim().uuid().optional(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Component name must be at least 2 characters")
+    .max(120, "Component name must be at most 120 characters"),
+  description: z.string().trim().max(500).optional().nullable().default(""),
+  weightPercent: z
+    .number()
+    .int("Weight must be a whole percent")
+    .min(1, "Weight must be at least 1%")
+    .max(100, "Weight must be at most 100%"),
+});
+
 export const submissionWriteSchema = z
   .object({
     title: z
@@ -99,6 +114,17 @@ export const submissionWriteSchema = z
       .nullable()
       .optional(),
     status: z.enum(["DRAFT", "ACTIVE"]).default("DRAFT"),
+    rubric: z.array(rubricComponentWriteSchema).min(1, "Add at least one rubric component").max(20),
+  })
+  .superRefine((value, ctx) => {
+    const weightTotal = value.rubric.reduce((sum, row) => sum + row.weightPercent, 0);
+    if (weightTotal !== 100) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["rubric"],
+        message: `Rubric weights must total 100% (currently ${weightTotal}%)`,
+      });
+    }
   })
   .superRefine((value, ctx) => {
     if (value.scheduleMode === "OPEN") return;

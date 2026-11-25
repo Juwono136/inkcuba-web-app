@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { assignment, assignmentGroupMember, workspace, workspaceMember } from "@/db/schema/workspaces";
 import {
+  isStudentModerationLocked,
   STUDENT_ARCHIVE_STATUSES,
   STUDENT_EDITABLE_STATUSES,
   type ProjectStatus,
@@ -24,6 +25,7 @@ export type ProjectAccess = {
   submissionReachable: boolean;
   canEdit: boolean;
   canArchive: boolean;
+  canUnarchive: boolean;
   canDelete: boolean;
   canSubmit: boolean;
   windowState: SubmissionWindowState | null;
@@ -67,10 +69,15 @@ export function projectKind(input: {
   return input.contributorCount > 1 ? "GROUP" : "INDIVIDUAL";
 }
 
-/** Linked drafts stay until archived. Detached records may be removed after they leave the live slot. */
+/**
+ * Linked drafts/archives may be deleted. While a live submission still exists,
+ * moderation/scoring statuses are never deletable (lecturer must not be disturbed).
+ * Detached orphans (assignment removed) may be cleaned up by contributors.
+ */
 export function studentCanDeleteStatus(status: string, assignmentId: string | null): boolean {
-  if (status === "PUBLISHED") return false;
   if (status === "DRAFT" || status === "ARCHIVED" || status === "TAKEN_DOWN") return true;
+  // Live moderation / scoring lock — keep the record stable for the lecturer.
+  if (assignmentId && isStudentModerationLocked(status)) return false;
   if (!assignmentId) {
     return (
       status === "SUBMITTED" ||
@@ -156,12 +163,17 @@ function buildProjectAccess(input: {
   const statusEditable = (STUDENT_EDITABLE_STATUSES as string[]).includes(input.project.status);
   const liveGroupLock = Boolean(input.project.assignmentId && input.project.groupId);
   const groupActorAllowed = kind === "INDIVIDUAL" || !liveGroupLock || isCurrentMember;
-  const canEdit = statusEditable && groupActorAllowed;
+  const gate = submitGate(slot);
+  const windowOpen = gate.windowState === "OPEN" || gate.windowState === "ALWAYS";
+  // NEED_REVISION stays editable only while the lecturer schedule window is still open.
+  const revisionWindowOk =
+    input.project.status !== "NEED_REVISION" || (Boolean(slot) && windowOpen);
+  const canEdit = statusEditable && groupActorAllowed && revisionWindowOk;
   const canArchive =
     (STUDENT_ARCHIVE_STATUSES as string[]).includes(input.project.status) && groupActorAllowed;
+  const canUnarchive = input.project.status === "ARCHIVED" && groupActorAllowed;
   const canDelete =
     studentCanDeleteStatus(input.project.status, input.project.assignmentId) && groupActorAllowed;
-  const gate = submitGate(slot);
   const canSubmit =
     canEdit && submissionReachable && !isDetached && gate.canSubmit;
 
@@ -172,6 +184,11 @@ function buildProjectAccess(input: {
     if (!canSubmit && gate.reason && submissionReachable) {
       relationNote = gate.reason;
     }
+  } else if (input.project.status === "ARCHIVED") {
+    accessLabel = canUnarchive ? "Archived · Restorable" : "Archived";
+    relationNote = canUnarchive
+      ? "This project is archived (read-only). Restore it to continue editing. Files stay in storage while archived."
+      : "This project is archived (read-only).";
   } else if (kind === "GROUP" && liveGroupLock && !isCurrentMember) {
     accessLabel = "View only · Left group";
     relationNote =
@@ -180,6 +197,22 @@ function buildProjectAccess(input: {
     accessLabel = "Detached";
     relationNote =
       "The workspace or submission is no longer available. The project stays on Project lists with its saved details and files.";
+  } else if (input.project.status === "NEED_REVISION" && !revisionWindowOk) {
+    accessLabel = "Revision closed";
+    relationNote =
+      "The submission window has ended. You can read the lecturer feedback, but you cannot revise or resubmit.";
+  } else if (
+    input.project.status === "SUBMITTED" ||
+    input.project.status === "IN_REVIEW" ||
+    input.project.status === "REVISED"
+  ) {
+    accessLabel = "In moderation";
+    relationNote =
+      "Your lecturer is reviewing or scoring this project. Edit, archive, and delete stay closed for every group member until a revision is requested or the project is published.";
+  } else if (input.project.status === "PUBLISHED") {
+    accessLabel = "Published";
+    relationNote =
+      "This project was verified and published. Edit, archive, and delete stay closed.";
   } else if (!(STUDENT_EDITABLE_STATUSES as string[]).includes(input.project.status)) {
     accessLabel = "Read only";
     relationNote = "This project is no longer in an editable status.";
@@ -198,6 +231,7 @@ function buildProjectAccess(input: {
     submissionReachable,
     canEdit,
     canArchive,
+    canUnarchive,
     canDelete,
     canSubmit,
     windowState: gate.windowState,

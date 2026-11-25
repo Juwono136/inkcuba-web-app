@@ -193,6 +193,7 @@ export function StudentSubmissionTab({ workspaceId }: StudentSubmissionTabProps)
                 status={item.status}
                 viewerUserId={detailQuery.data?.viewerUserId}
                 prepareGroupId={prepare.myGroup?.id ?? null}
+                prepareCtaLabel={prepare.ctaLabel}
                 onPrepareProject={() => {
                   void openProjectPage(item.id);
                 }}
@@ -324,9 +325,11 @@ function StudentGroupShortcut({
           {group ? `You are in ${group.name}` : "Choose a group, then prepare the project"}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-slate-600">
-          {group?.projectStarted
-            ? "This group has started a project. You stay here unless your lecturer moves you."
-            : "Jump to the groups without scrolling through the description. After a project starts, only your lecturer can move members."}
+          {group?.moderationLocked
+            ? "This group project is in lecturer review. Members cannot be moved until a revision is requested."
+            : group?.projectStarted
+              ? "This group has started a project. You stay here unless your lecturer moves you."
+              : "Jump to the groups without scrolling through the description. After a project starts, only your lecturer can move members."}
         </p>
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -345,7 +348,7 @@ function StudentGroupShortcut({
         </Button>
         {ready ? (
           <Button type="button" className="bg-inkcuba-cyan hover:bg-sky-600" onClick={onPrepare}>
-            Prepare project
+            {prepare.ctaLabel}
             <ArrowRight className="h-4 w-4" />
           </Button>
         ) : null}
@@ -368,13 +371,11 @@ function PrepareProjectBanner({
           Next step
         </p>
         <h2 className="font-heading mt-1 text-lg font-bold text-slate-900 sm:text-xl">
-          Prepare project
+          {prepare.ctaTitle}
         </h2>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">
           {prepare.canPrepare
-            ? prepare.canSubmitLater
-              ? "Open the project page to save a draft or submit while the window is open."
-              : "You can still prepare and save a draft. Submit stays closed until the lecturer’s schedule allows it."
+            ? prepare.ctaDescription
             : prepare.blockedReason}
         </p>
       </div>
@@ -384,7 +385,7 @@ function PrepareProjectBanner({
         disabled={!prepare.canPrepare}
         onClick={onOpen}
       >
-        Prepare project
+        {prepare.ctaLabel}
         <ArrowRight className="h-4 w-4" />
       </Button>
     </section>

@@ -9,6 +9,7 @@ import {
   portfolio,
   portfolioContributor,
   portfolioDocument,
+  portfolioEvent,
   portfolioImage,
   portfolioLink,
   portfolioVideo,
@@ -28,9 +29,11 @@ import { submissionWindowState } from "@/lib/workspaces/submissions/types";
 import { assertActiveStudentMember, loadOwnedWorkspace } from "@/lib/workspaces/submissions/access";
 import { resolveProjectAccess, resolveProjectAccessBatch } from "@/lib/projects/access";
 import {
+  isStudentModerationLocked,
   PROJECT_ADDITIONAL_DOC_MAX,
   PROJECT_IMAGE_MAX,
   STUDENT_EDITABLE_STATUSES,
+  STUDENT_UNARCHIVE_TARGET_STATUSES,
   type ProjectStatus,
 } from "@/lib/projects/limits";
 import {
@@ -40,6 +43,12 @@ import {
   storeProjectVideo,
 } from "@/lib/projects/media";
 import { plainProjectText, sanitizeProjectDescription } from "@/lib/projects/sanitize";
+import { buildJourneyStageTimestamps } from "@/lib/projects/journey";
+import { PROJECT_MAX_REVISIONS } from "@/lib/projects/limits";
+import {
+  loadAssignmentRubric,
+  loadLatestScoreSheet,
+} from "@/lib/projects/score-sheet";
 import type { ProjectListQuery, ProjectWriteInput } from "@/lib/projects/validators";
 
 type Actor = { actorId: string; ipAddress?: string | null; userAgent?: string | null };
@@ -217,6 +226,15 @@ export async function openStudentProject(input: {
       ipAddress: input.meta.ipAddress,
       userAgent: input.meta.userAgent,
     });
+    const { recordPortfolioEvent } = await import("@/lib/projects/events");
+    await recordPortfolioEvent(tx, {
+      portfolioId: id,
+      actorId: input.studentId,
+      actorRole: "STUDENT",
+      eventType: "CREATED",
+      toStatus: "DRAFT",
+      message: "The student started preparing this project.",
+    });
     return { id };
     });
   } catch (error) {
@@ -287,6 +305,11 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 async function loadEditable(portfolioId: string, studentId: string) {
   const project = await loadVisible(portfolioId, studentId);
+  if (isStudentModerationLocked(project.status)) {
+    throw new ValidationError(
+      "This project is in lecturer moderation or scoring. Edit, archive, and delete stay closed until a revision is requested or the project is published.",
+    );
+  }
   if (!(STUDENT_EDITABLE_STATUSES as string[]).includes(project.status)) {
     throw new ValidationError("This project can no longer be edited");
   }
@@ -304,6 +327,23 @@ async function loadEditable(portfolioId: string, studentId: string) {
       )
       .limit(1);
     if (!member) throw new ForbiddenError("Only current group members can edit this project");
+  }
+  if (project.status === "NEED_REVISION") {
+    if (!project.assignmentId) {
+      throw new ValidationError("This submission is no longer available for revision");
+    }
+    const [slot] = await db.select().from(assignment).where(eq(assignment.id, project.assignmentId)).limit(1);
+    if (!slot) throw new ValidationError("This submission is no longer available for revision");
+    const windowState = submissionWindowState({
+      scheduleMode: slot.scheduleMode,
+      opensAt: slot.opensAt,
+      closesAt: slot.closesAt,
+    });
+    if (windowState !== "OPEN" && windowState !== "ALWAYS") {
+      throw new ValidationError(
+        "The submission window has ended. You can no longer revise or resubmit this project.",
+      );
+    }
   }
   return project;
 }
@@ -435,6 +475,19 @@ export async function submitStudentProject(input: {
         .update(portfolio)
         .set({ status: nextStatus, updatedAt: new Date() })
         .where(eq(portfolio.id, current.id));
+      const { recordPortfolioEvent } = await import("@/lib/projects/events");
+      await recordPortfolioEvent(tx, {
+        portfolioId: current.id,
+        actorId: input.studentId,
+        actorRole: "STUDENT",
+        eventType: nextStatus === "REVISED" ? "RESUBMITTED" : "SUBMITTED",
+        fromStatus: current.status,
+        toStatus: nextStatus,
+        message:
+          nextStatus === "REVISED"
+            ? "The student resubmitted the project after a revision request."
+            : "The student submitted the project for lecturer moderation.",
+      });
       await createAuditLog({
         actorId: input.meta.actorId,
         action: "project.submit",
@@ -446,6 +499,21 @@ export async function submitStudentProject(input: {
       });
       return { id: current.id, status: nextStatus };
     });
+    try {
+      const { notifyAfterStudentSubmit } = await import("@/lib/projects/notify-submit");
+      await notifyAfterStudentSubmit({
+        portfolioId: result.id,
+        studentId: input.studentId,
+        status: result.status,
+      });
+    } catch (notifyError) {
+      // Submit + history already committed; email failure must not roll it back.
+      const { logger } = await import("@/lib/logger");
+      logger.error(
+        { err: notifyError, portfolioId: result.id },
+        "Project submit notify failed after commit",
+      );
+    }
     if (cacheKey) {
       try {
         await getRedisClient().set(cacheKey, JSON.stringify(result), "EX", 600);
@@ -508,13 +576,35 @@ export async function archiveStudentProject(input: {
     studentId: input.studentId,
     contributorCount: await contributorCount(current.id),
   });
+  if (current.status === "ARCHIVED") {
+    return { id: current.id, status: "ARCHIVED" as const, already: true as const };
+  }
+  if (isStudentModerationLocked(current.status)) {
+    throw new ValidationError(
+      "This project is in lecturer moderation or scoring and cannot be archived.",
+    );
+  }
   if (!access.canArchive) {
     throw new ValidationError("This project cannot be archived");
   }
-  await db
-    .update(portfolio)
-    .set({ status: "ARCHIVED", updatedAt: new Date() })
-    .where(eq(portfolio.id, current.id));
+  const fromStatus = current.status as ProjectStatus;
+  await db.transaction(async (tx) => {
+    await tx
+      .update(portfolio)
+      .set({ status: "ARCHIVED", updatedAt: new Date() })
+      .where(eq(portfolio.id, current.id));
+    const { recordPortfolioEvent } = await import("@/lib/projects/events");
+    await recordPortfolioEvent(tx, {
+      portfolioId: current.id,
+      actorId: input.meta.actorId,
+      actorRole: "STUDENT",
+      eventType: "ARCHIVED",
+      fromStatus,
+      toStatus: "ARCHIVED",
+      message: "Project archived. It stays on Project lists as read-only until restored.",
+      metadata: { previousStatus: fromStatus },
+    });
+  });
   await createAuditLog({
     actorId: input.meta.actorId,
     action: "project.archive",
@@ -523,7 +613,108 @@ export async function archiveStudentProject(input: {
     ipAddress: input.meta.ipAddress,
     userAgent: input.meta.userAgent,
   });
-  return { id: current.id, status: "ARCHIVED" as const };
+  return { id: current.id, status: "ARCHIVED" as const, already: false as const };
+}
+
+export async function unarchiveStudentProject(input: {
+  portfolioId: string;
+  studentId: string;
+  meta: Actor;
+}) {
+  const current = await loadVisible(input.portfolioId, input.studentId);
+  const access = await resolveProjectAccess({
+    project: current,
+    studentId: input.studentId,
+    contributorCount: await contributorCount(current.id),
+  });
+  if (current.status !== "ARCHIVED") {
+    return {
+      id: current.id,
+      status: current.status as ProjectStatus,
+      already: true as const,
+    };
+  }
+  if (!access.canUnarchive) {
+    throw new ValidationError("This project cannot be restored");
+  }
+
+  const { recordPortfolioEvent } = await import("@/lib/projects/events");
+  const [lastArchive] = await db
+    .select({
+      fromStatus: portfolioEvent.fromStatus,
+      metadata: portfolioEvent.metadata,
+    })
+    .from(portfolioEvent)
+    .where(and(eq(portfolioEvent.portfolioId, current.id), eq(portfolioEvent.eventType, "ARCHIVED")))
+    .orderBy(desc(portfolioEvent.createdAt))
+    .limit(1);
+
+  const remembered =
+    (typeof lastArchive?.metadata?.previousStatus === "string"
+      ? lastArchive.metadata.previousStatus
+      : null) ??
+    lastArchive?.fromStatus ??
+    "DRAFT";
+  let restoreTo: ProjectStatus = (STUDENT_UNARCHIVE_TARGET_STATUSES as string[]).includes(remembered)
+    ? (remembered as ProjectStatus)
+    : "DRAFT";
+
+  // Revision only makes sense while the submission window is still open.
+  if (restoreTo === "NEED_REVISION") {
+    const slot = current.assignmentId
+      ? (
+          await db
+            .select({
+              scheduleMode: assignment.scheduleMode,
+              opensAt: assignment.opensAt,
+              closesAt: assignment.closesAt,
+              status: assignment.status,
+            })
+            .from(assignment)
+            .where(eq(assignment.id, current.assignmentId))
+            .limit(1)
+        )[0]
+      : null;
+    const window = slot
+      ? submissionWindowState({
+          scheduleMode: slot.scheduleMode,
+          opensAt: slot.opensAt,
+          closesAt: slot.closesAt,
+        })
+      : null;
+    if (!slot || slot.status === "DRAFT" || (window !== "OPEN" && window !== "ALWAYS")) {
+      restoreTo = "DRAFT";
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(portfolio)
+      .set({ status: restoreTo, updatedAt: new Date() })
+      .where(eq(portfolio.id, current.id));
+    await recordPortfolioEvent(tx, {
+      portfolioId: current.id,
+      actorId: input.meta.actorId,
+      actorRole: "STUDENT",
+      eventType: "UNARCHIVED",
+      fromStatus: "ARCHIVED",
+      toStatus: restoreTo,
+      message:
+        restoreTo === "NEED_REVISION"
+          ? "Project restored. You can revise and resubmit while the submission window is open."
+          : "Project restored to draft. You can edit again from Project lists or the live submission.",
+      metadata: { restoredTo: restoreTo, rememberedStatus: remembered },
+    });
+  });
+  await createAuditLog({
+    actorId: input.meta.actorId,
+    action: "project.unarchive",
+    entityType: "portfolio",
+    entityId: current.id,
+    ipAddress: input.meta.ipAddress,
+    userAgent: input.meta.userAgent,
+  });
+  return { id: current.id, status: restoreTo, already: false as const };
 }
 
 /** Hard-delete a project and every SeaweedFS object under it. */
@@ -538,6 +729,11 @@ export async function deleteStudentProject(input: {
     studentId: input.studentId,
     contributorCount: await contributorCount(current.id),
   });
+  if (isStudentModerationLocked(current.status) && current.assignmentId) {
+    throw new ForbiddenError(
+      "This project is in lecturer moderation or scoring and cannot be deleted.",
+    );
+  }
   if (!access.canDelete) {
     throw new ForbiddenError("You cannot delete this project");
   }
@@ -568,6 +764,33 @@ export async function deleteStudentProject(input: {
   return { id: current.id, deleted: true as const };
 }
 
+async function bumpPortfolioUpdatedAt(tx: Tx, portfolioId: string) {
+  await tx
+    .update(portfolio)
+    .set({ updatedAt: new Date() })
+    .where(eq(portfolio.id, portfolioId));
+}
+
+/** Delete the prior SeaweedFS object only when it differs from the newly stored key. */
+async function deleteReplacedObject(previousKey: string | null | undefined, nextKey: string) {
+  if (!previousKey || previousKey === nextKey) return;
+  await deleteProjectObject(previousKey);
+}
+
+async function reindexProjectImages(tx: Tx, portfolioId: string) {
+  const rows = await tx
+    .select({ id: portfolioImage.id })
+    .from(portfolioImage)
+    .where(eq(portfolioImage.portfolioId, portfolioId))
+    .orderBy(asc(portfolioImage.sortOrder), asc(portfolioImage.id));
+  for (let index = 0; index < rows.length; index += 1) {
+    await tx
+      .update(portfolioImage)
+      .set({ sortOrder: index, isPoster: index === 0 })
+      .where(eq(portfolioImage.id, rows[index]!.id));
+  }
+}
+
 export async function addProjectImage(input: {
   portfolioId: string;
   studentId: string;
@@ -575,32 +798,65 @@ export async function addProjectImage(input: {
   mimeType: string;
   fileName: string;
 }) {
-  const current = await loadEditable(input.portfolioId, input.studentId);
-  const [existing] = await db
-    .select({ value: count() })
-    .from(portfolioImage)
-    .where(eq(portfolioImage.portfolioId, current.id));
-  if (Number(existing?.value ?? 0) >= PROJECT_IMAGE_MAX) {
-    throw new ValidationError("A project can have at most 3 overview images");
+  await loadEditable(input.portfolioId, input.studentId);
+  let stored: Awaited<ReturnType<typeof storeProjectImage>> | null = null;
+  try {
+    await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ id: portfolio.id })
+        .from(portfolio)
+        .where(eq(portfolio.id, input.portfolioId))
+        .for("update")
+        .limit(1);
+      if (!locked) throw new NotFoundError("Project not found");
+      const [existing] = await tx
+        .select({ value: count() })
+        .from(portfolioImage)
+        .where(eq(portfolioImage.portfolioId, locked.id));
+      if (Number(existing?.value ?? 0) >= PROJECT_IMAGE_MAX) {
+        throw new ValidationError("A project can have at most 3 overview images");
+      }
+    });
+    stored = await storeProjectImage({
+      portfolioId: input.portfolioId,
+      buffer: input.buffer,
+      mimeType: input.mimeType,
+      fileName: input.fileName,
+    });
+    const id = crypto.randomUUID();
+    await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ id: portfolio.id })
+        .from(portfolio)
+        .where(eq(portfolio.id, input.portfolioId))
+        .for("update")
+        .limit(1);
+      if (!locked) throw new NotFoundError("Project not found");
+      const [existing] = await tx
+        .select({ value: count() })
+        .from(portfolioImage)
+        .where(eq(portfolioImage.portfolioId, locked.id));
+      const sortOrder = Number(existing?.value ?? 0);
+      if (sortOrder >= PROJECT_IMAGE_MAX) {
+        throw new ValidationError("A project can have at most 3 overview images");
+      }
+      await tx.insert(portfolioImage).values({
+        id,
+        portfolioId: locked.id,
+        storageKey: stored!.key,
+        url: stored!.url,
+        mimeType: stored!.mimeType,
+        size: stored!.size,
+        isPoster: sortOrder === 0,
+        sortOrder,
+      });
+      await bumpPortfolioUpdatedAt(tx, locked.id);
+    });
+    return { id, url: stored.url };
+  } catch (error) {
+    if (stored) await deleteProjectObject(stored.key);
+    throw error;
   }
-  const stored = await storeProjectImage({
-    portfolioId: current.id,
-    buffer: input.buffer,
-    mimeType: input.mimeType,
-    fileName: input.fileName,
-  });
-  const id = crypto.randomUUID();
-  await db.insert(portfolioImage).values({
-    id,
-    portfolioId: current.id,
-    storageKey: stored.key,
-    url: stored.url,
-    mimeType: stored.mimeType,
-    size: stored.size,
-    isPoster: Number(existing?.value ?? 0) === 0,
-    sortOrder: Number(existing?.value ?? 0),
-  });
-  return { id, url: stored.url };
 }
 
 export async function removeProjectImage(input: {
@@ -608,15 +864,80 @@ export async function removeProjectImage(input: {
   imageId: string;
   studentId: string;
 }) {
-  const current = await loadEditable(input.portfolioId, input.studentId);
-  const [image] = await db
-    .select()
-    .from(portfolioImage)
-    .where(and(eq(portfolioImage.id, input.imageId), eq(portfolioImage.portfolioId, current.id)))
-    .limit(1);
-  if (!image) throw new NotFoundError("Image not found");
-  await db.delete(portfolioImage).where(eq(portfolioImage.id, image.id));
+  await loadEditable(input.portfolioId, input.studentId);
+  const image = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: portfolio.id })
+      .from(portfolio)
+      .where(eq(portfolio.id, input.portfolioId))
+      .for("update")
+      .limit(1);
+    const [row] = await tx
+      .select()
+      .from(portfolioImage)
+      .where(and(eq(portfolioImage.id, input.imageId), eq(portfolioImage.portfolioId, input.portfolioId)))
+      .limit(1);
+    if (!row) throw new NotFoundError("Image not found");
+    await tx.delete(portfolioImage).where(eq(portfolioImage.id, row.id));
+    await reindexProjectImages(tx, input.portfolioId);
+    await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+    return row;
+  });
   await deleteProjectObject(image.storageKey);
+}
+
+export async function replaceProjectImage(input: {
+  portfolioId: string;
+  imageId: string;
+  studentId: string;
+  buffer: Buffer;
+  mimeType: string;
+  fileName: string;
+}) {
+  await loadEditable(input.portfolioId, input.studentId);
+  let stored: Awaited<ReturnType<typeof storeProjectImage>> | null = null;
+  let previousKey: string | null = null;
+  try {
+    stored = await storeProjectImage({
+      portfolioId: input.portfolioId,
+      buffer: input.buffer,
+      mimeType: input.mimeType,
+      fileName: input.fileName,
+    });
+    const result = await db.transaction(async (tx) => {
+      await tx
+        .select({ id: portfolio.id })
+        .from(portfolio)
+        .where(eq(portfolio.id, input.portfolioId))
+        .for("update")
+        .limit(1);
+      const [row] = await tx
+        .select()
+        .from(portfolioImage)
+        .where(
+          and(eq(portfolioImage.id, input.imageId), eq(portfolioImage.portfolioId, input.portfolioId)),
+        )
+        .limit(1);
+      if (!row) throw new NotFoundError("Image not found");
+      previousKey = row.storageKey;
+      await tx
+        .update(portfolioImage)
+        .set({
+          storageKey: stored!.key,
+          url: stored!.url,
+          mimeType: stored!.mimeType,
+          size: stored!.size,
+        })
+        .where(eq(portfolioImage.id, row.id));
+      await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+      return { id: row.id, url: stored!.url };
+    });
+    await deleteReplacedObject(previousKey, stored.key);
+    return result;
+  } catch (error) {
+    if (stored) await deleteProjectObject(stored.key);
+    throw error;
+  }
 }
 
 export async function replaceProjectVideo(input: {
@@ -626,55 +947,95 @@ export async function replaceProjectVideo(input: {
   mimeType: string;
   fileName: string;
 }) {
-  const current = await loadEditable(input.portfolioId, input.studentId);
-  const [previous] = await db
-    .select()
-    .from(portfolioVideo)
-    .where(eq(portfolioVideo.portfolioId, current.id))
-    .limit(1);
-  const stored = await storeProjectVideo({
-    portfolioId: current.id,
-    buffer: input.buffer,
-    mimeType: input.mimeType,
-    fileName: input.fileName,
-  });
-  if (previous) {
-    await db
-      .update(portfolioVideo)
-      .set({
-        storageKey: stored.key,
-        url: stored.url,
-        mimeType: stored.mimeType,
-        size: stored.size,
-        durationSeconds: stored.durationSeconds,
-      })
-      .where(eq(portfolioVideo.id, previous.id));
-    await deleteProjectObject(previous.storageKey);
-    return { id: previous.id, url: stored.url };
+  await loadEditable(input.portfolioId, input.studentId);
+  let stored: Awaited<ReturnType<typeof storeProjectVideo>> | null = null;
+  let previousKey: string | null = null;
+  try {
+    stored = await storeProjectVideo({
+      portfolioId: input.portfolioId,
+      buffer: input.buffer,
+      mimeType: input.mimeType,
+      fileName: input.fileName,
+    });
+    const result = await db.transaction(async (tx) => {
+      await tx
+        .select({ id: portfolio.id })
+        .from(portfolio)
+        .where(eq(portfolio.id, input.portfolioId))
+        .for("update")
+        .limit(1);
+      const [previous] = await tx
+        .select()
+        .from(portfolioVideo)
+        .where(eq(portfolioVideo.portfolioId, input.portfolioId))
+        .limit(1);
+      if (previous) {
+        previousKey = previous.storageKey;
+        await tx
+          .update(portfolioVideo)
+          .set({
+            storageKey: stored!.key,
+            url: stored!.url,
+            mimeType: stored!.mimeType,
+            size: stored!.size,
+            durationSeconds: stored!.durationSeconds,
+          })
+          .where(eq(portfolioVideo.id, previous.id));
+        await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+        return {
+          id: previous.id,
+          url: stored!.url,
+          durationSeconds: stored!.durationSeconds,
+          size: stored!.size,
+        };
+      }
+      const id = crypto.randomUUID();
+      await tx.insert(portfolioVideo).values({
+        id,
+        portfolioId: input.portfolioId,
+        storageKey: stored!.key,
+        url: stored!.url,
+        mimeType: stored!.mimeType,
+        size: stored!.size,
+        durationSeconds: stored!.durationSeconds,
+      });
+      await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+      return {
+        id,
+        url: stored!.url,
+        durationSeconds: stored!.durationSeconds,
+        size: stored!.size,
+      };
+    });
+    await deleteReplacedObject(previousKey, stored.key);
+    return result;
+  } catch (error) {
+    if (stored) await deleteProjectObject(stored.key);
+    throw error;
   }
-  const id = crypto.randomUUID();
-  await db.insert(portfolioVideo).values({
-    id,
-    portfolioId: current.id,
-    storageKey: stored.key,
-    url: stored.url,
-    mimeType: stored.mimeType,
-    size: stored.size,
-    durationSeconds: stored.durationSeconds,
-  });
-  return { id, url: stored.url };
 }
 
 export async function removeProjectVideo(input: { portfolioId: string; studentId: string }) {
-  const current = await loadEditable(input.portfolioId, input.studentId);
-  const [video] = await db
-    .select()
-    .from(portfolioVideo)
-    .where(eq(portfolioVideo.portfolioId, current.id))
-    .limit(1);
-  if (!video) return;
-  await db.delete(portfolioVideo).where(eq(portfolioVideo.id, video.id));
-  await deleteProjectObject(video.storageKey);
+  await loadEditable(input.portfolioId, input.studentId);
+  const video = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: portfolio.id })
+      .from(portfolio)
+      .where(eq(portfolio.id, input.portfolioId))
+      .for("update")
+      .limit(1);
+    const [row] = await tx
+      .select()
+      .from(portfolioVideo)
+      .where(eq(portfolioVideo.portfolioId, input.portfolioId))
+      .limit(1);
+    if (!row) return null;
+    await tx.delete(portfolioVideo).where(eq(portfolioVideo.id, row.id));
+    await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+    return row;
+  });
+  if (video) await deleteProjectObject(video.storageKey);
+  return { ok: true as const, removed: Boolean(video) };
 }
 
 export async function addProjectDocument(input: {
@@ -685,54 +1046,68 @@ export async function addProjectDocument(input: {
   mimeType: string;
   fileName: string;
 }) {
-  const current = await loadEditable(input.portfolioId, input.studentId);
-  const rows = await db
-    .select()
-    .from(portfolioDocument)
-    .where(and(eq(portfolioDocument.portfolioId, current.id), eq(portfolioDocument.role, input.role)));
-  if (input.role === "PROJECT" && rows[0]) {
-    const stored = await storeProjectDocument({
-      portfolioId: current.id,
+  await loadEditable(input.portfolioId, input.studentId);
+  let stored: Awaited<ReturnType<typeof storeProjectDocument>> | null = null;
+  let previousKey: string | null = null;
+  try {
+    stored = await storeProjectDocument({
+      portfolioId: input.portfolioId,
       role: input.role,
       buffer: input.buffer,
       mimeType: input.mimeType,
       fileName: input.fileName,
     });
-    await db
-      .update(portfolioDocument)
-      .set({
-        storageKey: stored.key,
-        url: stored.url,
-        fileName: stored.fileName,
-        mimeType: stored.mimeType,
-        size: stored.size,
-      })
-      .where(eq(portfolioDocument.id, rows[0].id));
-    await deleteProjectObject(rows[0].storageKey);
-    return { id: rows[0].id, url: stored.url, fileName: stored.fileName };
+    const result = await db.transaction(async (tx) => {
+      await tx
+        .select({ id: portfolio.id })
+        .from(portfolio)
+        .where(eq(portfolio.id, input.portfolioId))
+        .for("update")
+        .limit(1);
+      const rows = await tx
+        .select()
+        .from(portfolioDocument)
+        .where(
+          and(eq(portfolioDocument.portfolioId, input.portfolioId), eq(portfolioDocument.role, input.role)),
+        );
+      if (input.role === "PROJECT" && rows[0]) {
+        previousKey = rows[0].storageKey;
+        await tx
+          .update(portfolioDocument)
+          .set({
+            storageKey: stored!.key,
+            url: stored!.url,
+            fileName: stored!.fileName,
+            mimeType: stored!.mimeType,
+            size: stored!.size,
+          })
+          .where(eq(portfolioDocument.id, rows[0].id));
+        await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+        return { id: rows[0].id, url: stored!.url, fileName: stored!.fileName };
+      }
+      if (input.role === "ADDITIONAL" && rows.length >= PROJECT_ADDITIONAL_DOC_MAX) {
+        throw new ValidationError("You can add at most 3 additional documents");
+      }
+      const id = crypto.randomUUID();
+      await tx.insert(portfolioDocument).values({
+        id,
+        portfolioId: input.portfolioId,
+        role: input.role,
+        storageKey: stored!.key,
+        url: stored!.url,
+        fileName: stored!.fileName,
+        mimeType: stored!.mimeType,
+        size: stored!.size,
+      });
+      await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+      return { id, url: stored!.url, fileName: stored!.fileName };
+    });
+    await deleteReplacedObject(previousKey, stored.key);
+    return result;
+  } catch (error) {
+    if (stored) await deleteProjectObject(stored.key);
+    throw error;
   }
-  if (input.role === "ADDITIONAL" && rows.length >= PROJECT_ADDITIONAL_DOC_MAX) {
-    throw new ValidationError("You can add at most 3 additional documents");
-  }
-  const stored = await storeProjectDocument({
-    portfolioId: current.id,
-    role: input.role,
-    buffer: input.buffer,
-    mimeType: input.mimeType,
-    fileName: input.fileName,
-  });
-  const id = crypto.randomUUID();
-  await db.insert(portfolioDocument).values({
-    id,
-    portfolioId: current.id,
-    role: input.role,
-    storageKey: stored.key,
-    url: stored.url,
-    fileName: stored.fileName,
-    mimeType: stored.mimeType,
-    size: stored.size,
-  });
-  return { id, url: stored.url, fileName: stored.fileName };
 }
 
 export async function removeProjectDocument(input: {
@@ -740,14 +1115,26 @@ export async function removeProjectDocument(input: {
   documentId: string;
   studentId: string;
 }) {
-  const current = await loadEditable(input.portfolioId, input.studentId);
-  const [doc] = await db
-    .select()
-    .from(portfolioDocument)
-    .where(and(eq(portfolioDocument.id, input.documentId), eq(portfolioDocument.portfolioId, current.id)))
-    .limit(1);
-  if (!doc) throw new NotFoundError("Document not found");
-  await db.delete(portfolioDocument).where(eq(portfolioDocument.id, doc.id));
+  await loadEditable(input.portfolioId, input.studentId);
+  const doc = await db.transaction(async (tx) => {
+    await tx
+      .select({ id: portfolio.id })
+      .from(portfolio)
+      .where(eq(portfolio.id, input.portfolioId))
+      .for("update")
+      .limit(1);
+    const [row] = await tx
+      .select()
+      .from(portfolioDocument)
+      .where(
+        and(eq(portfolioDocument.id, input.documentId), eq(portfolioDocument.portfolioId, input.portfolioId)),
+      )
+      .limit(1);
+    if (!row) throw new NotFoundError("Document not found");
+    await tx.delete(portfolioDocument).where(eq(portfolioDocument.id, row.id));
+    await bumpPortfolioUpdatedAt(tx, input.portfolioId);
+    return row;
+  });
   await deleteProjectObject(doc.storageKey);
 }
 
@@ -793,6 +1180,35 @@ export async function getStudentProject(input: {
         .innerJoin(userTable, eq(userTable.id, portfolioContributor.userId))
         .where(eq(portfolioContributor.portfolioId, current.id))
         .orderBy(asc(userTable.name));
+
+  const maxScore = current.assignmentId
+    ? (
+        await db
+          .select({ maxScore: assignment.maxScore })
+          .from(assignment)
+          .where(eq(assignment.id, current.assignmentId))
+          .limit(1)
+      )[0]?.maxScore ?? null
+    : null;
+  const [rubric, scoreSheet, eventFlags] = await Promise.all([
+    current.assignmentId && maxScore != null
+      ? loadAssignmentRubric(current.assignmentId, maxScore)
+      : Promise.resolve([]),
+    maxScore != null
+      ? loadLatestScoreSheet({ portfolioId: current.id, maxScore })
+      : Promise.resolve(null),
+    db
+      .select({
+        eventType: portfolioEvent.eventType,
+        createdAt: portfolioEvent.createdAt,
+      })
+      .from(portfolioEvent)
+      .where(eq(portfolioEvent.portfolioId, current.id))
+      .orderBy(asc(portfolioEvent.createdAt)),
+  ]);
+
+  const revisionCount = eventFlags.filter((row) => row.eventType === "REVISION_REQUESTED").length;
+
   return {
     id: current.id,
     title: current.title,
@@ -806,6 +1222,7 @@ export async function getStudentProject(input: {
     mode: input.source === "submission" && access.submissionReachable ? "prepare" : "library",
     canEdit: access.canEdit,
     canArchive: access.canArchive,
+    canUnarchive: access.canUnarchive,
     canDelete: access.canDelete,
     canSubmit: access.canSubmit,
     windowState: access.windowState,
@@ -821,6 +1238,25 @@ export async function getStudentProject(input: {
     workspaceId: current.workspaceId,
     assignmentId: current.assignmentId,
     groupId: current.groupId,
+    grade: current.grade,
+    feedback: current.feedback,
+    maxScore,
+    rubric,
+    scoreSheet,
+    viewerFinalGrade:
+      scoreSheet?.members.find((member) => member.userId === input.studentId)?.finalGrade ??
+      current.grade,
+    revisionPolicy: {
+      maxRevisions: PROJECT_MAX_REVISIONS,
+      revisionCount,
+      canRequestRevision: revisionCount < PROJECT_MAX_REVISIONS,
+      remainingRevisions: Math.max(0, PROJECT_MAX_REVISIONS - revisionCount),
+    },
+    journey: {
+      hasRevisionHistory: eventFlags.some((row) => row.eventType === "REVISION_REQUESTED"),
+      hasResubmitted: eventFlags.some((row) => row.eventType === "RESUBMITTED"),
+      stageTimestamps: buildJourneyStageTimestamps(eventFlags, current.createdAt),
+    },
     summary: {
       workspaceName: current.workspaceName,
       className: current.className,
@@ -837,7 +1273,14 @@ export async function getStudentProject(input: {
       image: imageUrl(person.image),
     })),
     images: images.map((image) => ({ id: image.id, url: image.url })),
-    video: videoRows[0] ? { id: videoRows[0].id, url: videoRows[0].url } : null,
+    video: videoRows[0]
+      ? {
+          id: videoRows[0].id,
+          url: videoRows[0].url,
+          durationSeconds: videoRows[0].durationSeconds,
+          size: videoRows[0].size,
+        }
+      : null,
     documents: documents.map((doc) => ({
       id: doc.id,
       role: doc.role,
@@ -886,6 +1329,8 @@ export async function listStudentProjects(input: { studentId: string; query: Pro
       id: portfolio.id,
       title: portfolio.title,
       status: portfolio.status,
+      grade: portfolio.grade,
+      feedback: portfolio.feedback,
       updatedAt: portfolio.updatedAt,
       workspaceName: portfolio.workspaceName,
       className: portfolio.className,
@@ -927,6 +1372,8 @@ export async function listStudentProjects(input: { studentId: string; query: Pro
       id: item.id,
       title: item.title,
       status: item.status,
+      grade: item.grade,
+      feedback: item.feedback,
       updatedAt: item.updatedAt.toISOString(),
       workspaceName: item.workspaceName,
       className: item.className,
@@ -935,6 +1382,7 @@ export async function listStudentProjects(input: { studentId: string; query: Pro
       kind: access.kind,
       canEdit: access.canEdit,
       canDelete: access.canDelete,
+      canUnarchive: access.canUnarchive,
       accessLabel: access.accessLabel,
       isDetached: access.isDetached,
       submissionHref: access.submissionReachable
@@ -957,11 +1405,17 @@ export async function listLecturerSubmissionProjects(input: {
   submissionId: string;
 }) {
   await loadOwnedWorkspace(input.workspaceId, input.lecturerId);
+  const [slot] = await db
+    .select({ status: assignment.status, maxScore: assignment.maxScore })
+    .from(assignment)
+    .where(eq(assignment.id, input.submissionId))
+    .limit(1);
   const rows = await db
     .select({
       id: portfolio.id,
       title: portfolio.title,
       status: portfolio.status,
+      grade: portfolio.grade,
       updatedAt: portfolio.updatedAt,
       groupName: assignmentGroup.name,
       ownerName: userTable.name,
@@ -973,38 +1427,16 @@ export async function listLecturerSubmissionProjects(input: {
     .orderBy(desc(portfolio.updatedAt));
   return {
     items: rows.map((row) => ({
-      ...row,
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      grade: row.grade,
       updatedAt: row.updatedAt.toISOString(),
       who: row.groupName ?? row.ownerName,
+      canModerate:
+        slot?.status === "ACTIVE" &&
+        ["SUBMITTED", "IN_REVIEW", "REVISED"].includes(row.status),
+      maxScore: slot?.maxScore ?? null,
     })),
-    note: "Review and scoring will be added here. Status changes are not available yet.",
   };
-}
-
-export async function lecturerSetProjectStatus(input: {
-  portfolioId: string;
-  lecturerId: string;
-  status: "IN_REVIEW" | "NEED_REVISION" | "PUBLISHED" | "TAKEN_DOWN";
-  meta: Actor;
-}) {
-  const [current] = await db.select().from(portfolio).where(eq(portfolio.id, input.portfolioId)).limit(1);
-  if (!current?.workspaceId) throw new NotFoundError("Project not found");
-  await loadOwnedWorkspace(current.workspaceId, input.lecturerId);
-  await db
-    .update(portfolio)
-    .set({
-      status: input.status,
-      updatedAt: new Date(),
-      ...(input.status === "PUBLISHED" ? { publishedAt: new Date(), verifiedById: input.lecturerId, verifiedAt: new Date() } : {}),
-    })
-    .where(eq(portfolio.id, current.id));
-  await createAuditLog({
-    actorId: input.meta.actorId,
-    action: "project.status",
-    entityType: "portfolio",
-    entityId: current.id,
-    metadata: { status: input.status },
-    ipAddress: input.meta.ipAddress,
-    userAgent: input.meta.userAgent,
-  });
 }

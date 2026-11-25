@@ -248,7 +248,11 @@ export function LecturerSubmissionTab({ workspaceId }: LecturerSubmissionTabProp
                 </>
               }
             />
-            <SubmissionProjectReview workspaceId={workspaceId} submissionId={item.id} />
+            <SubmissionProjectReview
+              workspaceId={workspaceId}
+              submissionId={item.id}
+              submissionTitle={item.title}
+            />
             {item.type === "GROUP" ? (
               <SubmissionGroupBoard
                 workspaceId={workspaceId}
@@ -448,9 +452,19 @@ function FormDialog({
   onSubmit: (input: SubmissionWriteInput) => Promise<void>;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Only the explicit close (×) / Cancel path should dismiss — ignore accidental closes.
+        if (!next && saving) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent
         showCloseButton={!saving}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => event.preventDefault()}
         className="max-h-[min(92vh,920px)] w-[calc(100%-1.5rem)] overflow-y-auto border-2 border-slate-900 shadow-inkcuba sm:max-w-3xl lg:max-w-5xl"
       >
         <DialogHeader>
@@ -458,7 +472,7 @@ function FormDialog({
             {editing ? "Edit submission" : "New submission"}
           </DialogTitle>
           <DialogDescription className="text-sm text-slate-600">
-            Title, schedule, maximum score, type, and status are required. Description is optional.
+            Complete both tabs: Details (title, schedule, score, type, status) and a required Assessment rubric totalling 100%.
           </DialogDescription>
         </DialogHeader>
         {open ? (

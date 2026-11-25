@@ -6,7 +6,7 @@
 - PostgreSQL
 - Redis
 - SeaweedFS (or compatible object storage endpoint)
-- `ffmpeg` and `ffprobe` on `PATH` (required only for student project video uploads; images and documents work without them)
+- Project video uploads resolve tools via `src/lib/projects/video-tools.ts`: optional `FFMPEG_PATH` / `FFPROBE_PATH`, then files under `node_modules/ffmpeg-static` and `node_modules/ffprobe-static` (absolute paths from `process.cwd()`), then a verified system binary on `PATH`. Duration is always enforced. Images and documents never need them.
 - SMTP mailbox (Gmail App Password recommended for local/dev)
 
 ---
@@ -87,6 +87,13 @@ See `.env.example` for the canonical list.
 | `USERNAME_STORAGE` | Auth username / access key |
 | `PASSWORD_STORAGE` | Auth password / secret |
 
+### Video tools (optional)
+
+| Key | Purpose |
+|---|---|
+| `FFMPEG_PATH` | Absolute path to `ffmpeg` (overrides bundled `ffmpeg-static`) |
+| `FFPROBE_PATH` | Absolute path to `ffprobe` (overrides bundled `ffprobe-static`) |
+
 ### Ops
 
 | Key | Purpose |
@@ -157,7 +164,7 @@ It refuses to run when `NODE_ENV` is `production` or when `DATABASE_URL` points 
 8. Forgot password email arrives and reset works.
 9. Authenticated users cannot open `/auth/*` (except flows that intentionally redirect).
 10. Guests cannot open `/dashboard/*`.
-11. `npm run worker` (or `npm run dev` which starts web+worker) processes import/email queues.
+11. `npm run worker` (or `npm run dev` which starts web+worker) processes import, workspace invite, and project moderation email queues.
 12. Production: `npm run build` then `npm run pm2:start` runs `inkcuba-web` + `inkcuba-worker`.
 
 ### Dev scripts

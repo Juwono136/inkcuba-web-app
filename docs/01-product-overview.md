@@ -48,9 +48,9 @@ Public visitors browse without an account.
 | User menu dropdown | Done | Dashboard, settings, logout + confirm modal |
 | Avatar upload (SeaweedFS) | Done | Upload on form submit only |
 | Media proxy for private storage | Done | `/api/media/[...key]` |
-| Dashboards (student / lecturer / admin) | Partial | Student + lecturer Workspaces live; student Project lists live; lecturer scoring still to come |
-| Lecturer Workspaces | Done (submissions) | Create/edit/list; soft-delete trash (30d purge); Info + People; Submission slots (individual/group, schedule, groups). The submission detail lists student projects and status. Accept, reject, and scoring are not built yet |
-| Student Workspaces | Done (prepare + submit) | `/join` gate → detail with Info / People / Submission. **Prepare project** opens `/dashboard/student/projects/[id]?source=submission` (Back returns to the submission while it is reachable). Submit follows the lecturer schedule window. **Project lists** is the lasting library for edit/view/delete after group moves or workspace/submission removal. Mobile uses a bottom tab bar plus the sidebar drawer |
+| Dashboards (student / lecturer / admin) | Partial | Student + lecturer Workspaces live; student Project lists live; lecturer Scoring live |
+| Lecturer Workspaces | Done (submissions + scoring) | Create/edit/list; soft-delete trash (30d purge); Info + People; Submission slots; **Scoring** tab for moderation/publish. Submission detail links into Review without leaving the workspace |
+| Student Workspaces | Done (prepare + submit + revision) | `/join` gate → detail with Info / People / Submission. **Prepare project** opens `/dashboard/student/projects/[id]?source=submission`. Submit follows the schedule window. After submit, editing stays closed until revision or publish. **Project lists** keeps lasting records. Mobile bottom tab bar included |
 | Public user profiles | Done | `/u/{binusianId|userId}` for students & lecturers; friendly share; People/lecturer cards link in |
 | My Settings page | Done | Identity (RO), photo, public profile (+ view/copy public URL), password, 7-day login history |
 | Admin console layout | Done | Edge-collapse sidebar, breadcrumbs, public-site shortcut |
@@ -70,7 +70,7 @@ Public visitors browse without an account.
 |---|---|---|
 | Student / lecturer profiles | Done | My Settings + admin identity sync |
 | Workspaces (lecturer + student) | Done | Create/edit/list + Info + People + Submission slots and groups |
-| Portfolios / media / reviews | Partial | Students can draft, submit, resubmit, and archive. Lecturer review is a status list only. Public exhibition and scoring are not built yet |
+| Portfolios / media / reviews | Partial | Students draft, submit, revise, and archive. Lecturers moderate (revision or publish with score). Emails notify both sides. Public exhibition pages and take-down UI are not built yet; `PUBLISHED` is stored for later |
 | Audit logs | Schema ready | Audit helpers exist |
 
 ---

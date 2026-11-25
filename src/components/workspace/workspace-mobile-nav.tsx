@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ClipboardList,
   FolderKanban,
   LayoutDashboard,
   Settings,
@@ -19,7 +20,7 @@ import { cn } from "@/lib/utils";
 const ICONS = {
   overview: LayoutDashboard,
   settings: Settings,
-  portfolios: FolderKanban,
+  portfolios: ClipboardList,
   workspaces: FolderKanban,
 } as const;
 

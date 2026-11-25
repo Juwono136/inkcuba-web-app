@@ -315,13 +315,22 @@ export async function listSubmissionGroups(input: {
   const unassignedTotal = Number(unassignedTotalRows[0]?.value ?? 0);
   const groupTotal = groupRows.length;
   const startedRows = await db
-    .select({ groupId: portfolio.groupId })
+    .select({ groupId: portfolio.groupId, status: portfolio.status })
     .from(portfolio)
     .where(
       and(eq(portfolio.assignmentId, submission.id), sql`${portfolio.groupId} is not null`),
     );
   const startedGroups = new Set(
     startedRows.map((row) => row.groupId).filter((id): id is string => Boolean(id)),
+  );
+  const {
+    isGroupMoveLockedForModeration,
+    isSubmissionStructureLockStatus,
+  } = await import("@/lib/projects/limits");
+  const moderationLockedGroups = new Set(
+    startedRows
+      .filter((row) => row.groupId && isGroupMoveLockedForModeration(row.status))
+      .map((row) => row.groupId as string),
   );
   const seatCapacity = groupRows.reduce(
     (sum, group) => sum + group.maxMembers,
@@ -343,6 +352,10 @@ export async function listSubmissionGroups(input: {
     maxGroupSize: submission.maxGroupSize,
     activeStudentCount: Number(activeCountRows[0]?.value ?? 0),
     seatCapacity,
+    hasStartedProjects: startedGroups.size > 0,
+    hasModerationPipeline: startedRows.some((row) =>
+      isSubmissionStructureLockStatus(row.status),
+    ),
     groups: {
       items: pageGroups.map((group) => ({
         id: group.id,
@@ -350,6 +363,7 @@ export async function listSubmissionGroups(input: {
         maxMembers: group.maxMembers,
         memberCount: counts.get(group.id) ?? 0,
         projectStarted: startedGroups.has(group.id),
+        moderationLocked: moderationLockedGroups.has(group.id),
         members: membersByGroup.get(group.id) ?? [],
       })),
       total: groupTotal,
@@ -365,6 +379,7 @@ export async function listSubmissionGroups(input: {
           maxMembers: unassignedTotal,
           memberCount: unassignedTotal,
           projectStarted: false,
+          moderationLocked: false,
           members: unassignedRows.map(mapUser),
         },
       ],
@@ -379,6 +394,7 @@ export async function listSubmissionGroups(input: {
       memberCount: counts.get(group.id) ?? 0,
       maxMembers: group.maxMembers,
       projectStarted: startedGroups.has(group.id),
+      moderationLocked: moderationLockedGroups.has(group.id),
     })),
   };
 }
@@ -561,6 +577,17 @@ export async function deleteEmptySubmissionGroup(input: {
       throw new ConflictError("Move everyone out before deleting this group");
     }
 
+    const [groupProject] = await tx
+      .select({ id: portfolio.id, status: portfolio.status })
+      .from(portfolio)
+      .where(eq(portfolio.groupId, target.id))
+      .limit(1);
+    if (groupProject) {
+      throw new ConflictError(
+        "This group already has a project record. It cannot be deleted.",
+      );
+    }
+
     await tx.delete(assignmentGroup).where(eq(assignmentGroup.id, target.id));
 
     await createAuditLog({
@@ -721,16 +748,34 @@ export async function moveSubmissionMember(input: {
         )
         .limit(1);
 
-      if (input.actor === "student") {
-        const startedRows = await tx
-          .select({ groupId: portfolio.groupId })
-          .from(portfolio)
-          .where(
-            and(eq(portfolio.assignmentId, submission.id), sql`${portfolio.groupId} is not null`),
-          );
-        const started = new Set(
-          startedRows.map((row) => row.groupId).filter((id): id is string => Boolean(id)),
+      const portfolioRows = await tx
+        .select({ groupId: portfolio.groupId, status: portfolio.status })
+        .from(portfolio)
+        .where(
+          and(eq(portfolio.assignmentId, submission.id), sql`${portfolio.groupId} is not null`),
         );
+      const started = new Set(
+        portfolioRows.map((row) => row.groupId).filter((id): id is string => Boolean(id)),
+      );
+      const { isGroupMoveLockedForModeration } = await import("@/lib/projects/limits");
+      const moderationLocked = new Set(
+        portfolioRows
+          .filter((row) => row.groupId && isGroupMoveLockedForModeration(row.status))
+          .map((row) => row.groupId as string),
+      );
+
+      if (existing[0] && moderationLocked.has(existing[0].groupId)) {
+        throw new ForbiddenError(
+          "This group’s project is submitted, in review, revised, or published. Members stay locked until the lecturer requests a revision (draft and revision stages unlock moves again).",
+        );
+      }
+      if (input.toGroupId && moderationLocked.has(input.toGroupId)) {
+        throw new ForbiddenError(
+          "That group’s project is submitted, in review, revised, or published. Members cannot join it until a revision is requested.",
+        );
+      }
+
+      if (input.actor === "student") {
         if (existing[0] && started.has(existing[0].groupId)) {
           throw new ForbiddenError(
             "Your group has started a project. Only your lecturer can move you to another group.",

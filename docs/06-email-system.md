@@ -70,6 +70,20 @@ Queued via BullMQ (`workspace-invite-email`) and audited in `workspace_email_out
 
 Services: `src/lib/email/services/workspace-invite.ts`. Worker: `npm run worker` / PM2 `inkcuba-worker`.
 
+### Project moderation emails
+
+Queued via BullMQ (`project-email`) and audited in `project_email_outbox`. Outbox insert + Redis enqueue happens after the DB write so email failures never roll back submit/moderation. The worker retries failed sends; high volume is handled by the queue (concurrent workers via PM2 / `npm run worker`).
+
+| Template | When | Audience |
+|---|---|---|
+| `PROJECT_SUBMITTED_STUDENT` | Student submits (`SUBMITTED`) or resubmits after revision (`REVISED`) | Every portfolio contributor (all group members for group slots) |
+| `PROJECT_SUBMITTED_LECTURER` | Same moment | Workspace lecturer (Scoring deep link to that project) |
+| `PROJECT_REVISION_REQUESTED` | Lecturer requests revision (journey stage; max 2 rounds) | Every contributor; plain-text feedback + revision round X of 2 |
+| `PROJECT_PUBLISHED` (`audience: student`) | Lecturer publishes (journey stage) | Every contributor (score + optional note + scoring sheet mention) |
+| `PROJECT_PUBLISHED` (`audience: lecturer`) | Same publish | Workspace lecturer confirmation (Scoring deep link) |
+
+One email per meaningful stage transition only (submit/resubmit, revision requested, published). No emails for opening review or draft saves. Payload fields include `eventKind` (`SUBMITTED`\|`REVISED`), `audience` (`student`\|`lecturer`), optional `journeyStage`, and `scoringSheetAvailable`. HTML templates use the shared responsive `buildEmailLayout` (mobile media queries, branded card meta, escaped dynamic text). Service: `src/lib/email/services/project-notify.ts`.
+
 ---
 
 ## Template design guidelines (current)

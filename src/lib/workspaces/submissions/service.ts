@@ -1,16 +1,23 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { user as userTable } from "@/db/schema/auth";
+import { portfolio, portfolioScoreSheet } from "@/db/schema/portfolios";
 import {
   assignment,
   assignmentGroup,
   assignmentGroupMember,
+  assignmentRubricComponent,
 } from "@/db/schema/workspaces";
 import { createAuditLog } from "@/lib/audit";
 import { NotFoundError, ValidationError } from "@/lib/api/errors";
+import { isSubmissionStructureLockStatus } from "@/lib/projects/limits";
+import {
+  allocateComponentMaxPoints,
+  assertRubricWeightsComplete,
+} from "@/lib/projects/rubric";
 import { toMediaProxyUrl } from "@/lib/workspaces/sanitize-description";
 import { loadOwnedWorkspace } from "@/lib/workspaces/submissions/access";
 import {
@@ -25,6 +32,7 @@ import {
   type SubmissionListPage,
   type SubmissionPrepareState,
   type SubmissionRecord,
+  type SubmissionRubricComponent,
   type SubmissionStatus,
 } from "@/lib/workspaces/submissions/types";
 import type {
@@ -43,12 +51,57 @@ function totalPages(total: number, pageSize: number): number {
   return Math.max(1, Math.ceil(total / pageSize));
 }
 
-function toRecord(row: typeof assignment.$inferSelect): SubmissionRecord {
+async function isRubricLocked(assignmentId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: portfolioScoreSheet.id })
+    .from(portfolioScoreSheet)
+    .where(eq(portfolioScoreSheet.assignmentId, assignmentId))
+    .limit(1);
+  return Boolean(row);
+}
+
+async function isStructureLocked(assignmentId: string): Promise<boolean> {
+  const rows = await db
+    .select({ status: portfolio.status })
+    .from(portfolio)
+    .where(eq(portfolio.assignmentId, assignmentId));
+  return rows.some((row) => isSubmissionStructureLockStatus(row.status));
+}
+
+async function loadRubricComponents(
+  assignmentId: string,
+  maxScore: number,
+): Promise<SubmissionRubricComponent[]> {
+  const rows = await db
+    .select()
+    .from(assignmentRubricComponent)
+    .where(eq(assignmentRubricComponent.assignmentId, assignmentId))
+    .orderBy(asc(assignmentRubricComponent.sortOrder), asc(assignmentRubricComponent.createdAt));
+  const maxes = allocateComponentMaxPoints(
+    rows.map((row) => row.weightPercent),
+    maxScore,
+  );
+  return rows.map((row, index) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    weightPercent: row.weightPercent,
+    sortOrder: row.sortOrder,
+    maxPoints: maxes[index] ?? 0,
+  }));
+}
+
+async function toRecord(row: typeof assignment.$inferSelect): Promise<SubmissionRecord> {
   const groupMethod = isGroupMethod(row.groupMethod)
     ? row.groupMethod
     : row.groupMethod === "MANUAL"
       ? "SELF_SELECT"
       : null;
+  const [rubric, rubricLocked, structureLocked] = await Promise.all([
+    loadRubricComponents(row.id, row.maxScore),
+    isRubricLocked(row.id),
+    isStructureLocked(row.id),
+  ]);
 
   return {
     id: row.id,
@@ -68,9 +121,34 @@ function toRecord(row: typeof assignment.$inferSelect): SubmissionRecord {
       opensAt: row.opensAt,
       closesAt: row.closesAt,
     }),
+    rubric,
+    rubricLocked,
+    structureLocked,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+async function replaceRubricComponents(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  assignmentId: string,
+  rubric: SubmissionWriteInput["rubric"],
+) {
+  assertRubricWeightsComplete(rubric);
+  await tx
+    .delete(assignmentRubricComponent)
+    .where(eq(assignmentRubricComponent.assignmentId, assignmentId));
+  if (rubric.length === 0) return;
+  await tx.insert(assignmentRubricComponent).values(
+    rubric.map((row, index) => ({
+      id: row.id && row.id.length > 0 ? row.id : crypto.randomUUID(),
+      assignmentId,
+      name: row.name.trim(),
+      description: row.description?.trim() ? row.description.trim() : null,
+      weightPercent: row.weightPercent,
+      sortOrder: index,
+    })),
+  );
 }
 
 function scheduleColumns(input: SubmissionWriteInput): {
@@ -179,7 +257,7 @@ export async function listLecturerSubmissions(input: {
     .offset(offset);
 
   return {
-    items: rows.map(toRecord),
+    items: await Promise.all(rows.map((row) => toRecord(row))),
     total,
     page: input.query.page,
     pageSize: input.query.pageSize,
@@ -218,7 +296,7 @@ export async function listStudentSubmissions(input: {
     .offset(offset);
 
   return {
-    items: rows.map(toRecord),
+    items: await Promise.all(rows.map((row) => toRecord(row))),
     total,
     page: input.query.page,
     pageSize: input.query.pageSize,
@@ -249,7 +327,7 @@ export async function getCurrentSubmission(input: {
   if (!current) return { submission: null, activeCount: rows.length };
 
   return {
-    submission: toRecord(current),
+    submission: await toRecord(current),
     activeCount: rows.length,
   };
 }
@@ -319,6 +397,8 @@ export async function createLecturerSubmission(input: {
       sortOrder: 0,
     });
 
+    await replaceRubricComponents(tx, id, input.data.rubric);
+
     if (isGroup && input.data.maxGroupSize) {
       await ensureEmptyGroups(tx, {
         assignmentId: id,
@@ -360,6 +440,32 @@ export async function updateLecturerSubmission(input: {
 
   const description = sanitizeSubmissionDescription(input.data.description);
   const schedule = scheduleColumns(input.data);
+  const structureLocked = await isStructureLocked(current.id);
+
+  if (structureLocked) {
+    if (input.data.type !== current.type) {
+      throw new ValidationError(
+        "Submission type is locked after a project has been submitted or reviewed. Create a new submission if you need a different type.",
+      );
+    }
+    const currentMethod =
+      current.groupMethod === "RANDOM" || current.groupMethod === "SELF_SELECT"
+        ? current.groupMethod
+        : current.groupMethod === "MANUAL"
+          ? "SELF_SELECT"
+          : null;
+    if (
+      current.type === "GROUP" &&
+      input.data.groupMethod != null &&
+      currentMethod != null &&
+      input.data.groupMethod !== currentMethod
+    ) {
+      throw new ValidationError(
+        "How groups are formed is locked after a project has been submitted or reviewed.",
+      );
+    }
+  }
+
   const nextGroup = input.data.type === "GROUP";
 
   if (current.type === "GROUP" && !nextGroup) {
@@ -378,15 +484,32 @@ export async function updateLecturerSubmission(input: {
     await assertGroupSizeFits(current.id, input.data.maxGroupSize);
   }
 
+  const rubricLocked = await isRubricLocked(current.id);
+
+  const lockedType = structureLocked ? current.type : input.data.type;
+  const lockedIsGroup = lockedType === "GROUP";
+  const lockedGroupMethod = structureLocked
+    ? current.groupMethod === "RANDOM" || current.groupMethod === "SELF_SELECT"
+      ? current.groupMethod
+      : current.groupMethod === "MANUAL"
+        ? "SELF_SELECT"
+        : input.data.groupMethod
+    : lockedIsGroup
+      ? input.data.groupMethod!
+      : null;
+  const lockedMaxGroupSize = lockedIsGroup
+    ? (input.data.maxGroupSize ?? current.maxGroupSize)
+    : null;
+
   await db.transaction(async (tx) => {
     await tx
       .update(assignment)
       .set({
         title: input.data.title,
         description,
-        type: input.data.type,
-        groupMethod: nextGroup ? input.data.groupMethod! : null,
-        maxGroupSize: nextGroup ? input.data.maxGroupSize! : null,
+        type: lockedType,
+        groupMethod: lockedIsGroup ? lockedGroupMethod : null,
+        maxGroupSize: lockedMaxGroupSize,
         maxScore: input.data.maxScore,
         ...schedule,
         status: input.data.status,
@@ -394,19 +517,53 @@ export async function updateLecturerSubmission(input: {
       })
       .where(eq(assignment.id, current.id));
 
-    if (!nextGroup) {
+    if (rubricLocked) {
+      const existing = await tx
+        .select()
+        .from(assignmentRubricComponent)
+        .where(eq(assignmentRubricComponent.assignmentId, current.id));
+      if (existing.length !== input.data.rubric.length) {
+        throw new ValidationError(
+          "Rubric components are locked after the first score sheet. Only descriptions can change.",
+        );
+      }
+      for (const [index, row] of input.data.rubric.entries()) {
+        const prior = existing.find((item) => item.id === row.id) ?? existing[index];
+        if (!prior) {
+          throw new ValidationError("Rubric components are locked after the first score sheet");
+        }
+        if (
+          prior.name !== row.name.trim() ||
+          prior.weightPercent !== row.weightPercent
+        ) {
+          throw new ValidationError(
+            "Rubric names and weights are locked after the first score sheet. Only descriptions can change.",
+          );
+        }
+        await tx
+          .update(assignmentRubricComponent)
+          .set({
+            description: row.description?.trim() ? row.description.trim() : null,
+          })
+          .where(eq(assignmentRubricComponent.id, prior.id));
+      }
+    } else {
+      await replaceRubricComponents(tx, current.id, input.data.rubric);
+    }
+
+    if (!lockedIsGroup) {
       await tx
         .delete(assignmentGroup)
         .where(eq(assignmentGroup.assignmentId, current.id));
-    } else if (input.data.maxGroupSize) {
+    } else if (lockedMaxGroupSize) {
       await tx
         .update(assignmentGroup)
-        .set({ maxMembers: input.data.maxGroupSize })
+        .set({ maxMembers: lockedMaxGroupSize })
         .where(eq(assignmentGroup.assignmentId, current.id));
       await ensureEmptyGroups(tx, {
         assignmentId: current.id,
         workspaceId: input.workspaceId,
-        maxGroupSize: input.data.maxGroupSize,
+        maxGroupSize: lockedMaxGroupSize,
       });
     }
   });
@@ -420,6 +577,7 @@ export async function updateLecturerSubmission(input: {
       workspaceId: input.workspaceId,
       status: input.data.status,
       previousStatus: current.status,
+      structureLocked,
     },
     ipAddress: input.meta.ipAddress,
     userAgent: input.meta.userAgent,
@@ -525,11 +683,27 @@ export async function getSubmissionPrepareState(input: {
 }): Promise<SubmissionPrepareState> {
   const row = await loadSubmission(input.workspaceId, input.assignmentId);
   if (row.status === "DRAFT") throw new NotFoundError("Submission not found");
-  const record = toRecord(row);
+  const record = await toRecord(row);
+  const { portfolio } = await import("@/db/schema/portfolios");
+  const { isGroupMoveLockedForModeration, projectOpenCta } = await import(
+    "@/lib/projects/limits"
+  );
 
   if (record.type === "INDIVIDUAL") {
     const closed = record.status === "CLOSED" || record.windowState === "ENDED";
     const upcoming = record.windowState === "UPCOMING";
+    const [existing] = await db
+      .select({ id: portfolio.id, status: portfolio.status })
+      .from(portfolio)
+      .where(
+        and(
+          eq(portfolio.assignmentId, row.id),
+          eq(portfolio.submittedById, input.studentId),
+          sql`${portfolio.groupId} is null`,
+        ),
+      )
+      .limit(1);
+    const cta = projectOpenCta(existing?.status ?? null);
     return {
       canPrepare: true,
       canSubmitLater: record.status === "ACTIVE" && !closed && !upcoming,
@@ -540,6 +714,13 @@ export async function getSubmissionPrepareState(input: {
         type: "INDIVIDUAL",
       }),
       myGroup: null,
+      portfolioId: existing?.id ?? null,
+      projectStatus: existing?.status ?? null,
+      ctaLabel: existing ? cta.label : "Prepare project",
+      ctaTitle: existing ? cta.title : "Prepare project",
+      ctaDescription: existing
+        ? cta.description
+        : "Open the project page to save a draft or submit while the window is open.",
     };
   }
 
@@ -569,6 +750,11 @@ export async function getSubmissionPrepareState(input: {
       canSubmitLater: false,
       blockedReason: "Join a group before preparing this project.",
       myGroup: null,
+      portfolioId: null,
+      projectStatus: null,
+      ctaLabel: "Prepare project",
+      ctaTitle: "Prepare project",
+      ctaDescription: "Join a group before preparing this project.",
     };
   }
 
@@ -585,18 +771,19 @@ export async function getSubmissionPrepareState(input: {
     .where(eq(assignmentGroupMember.groupId, mine.groupId));
 
   const memberCount = people.length;
-  const { portfolio } = await import("@/db/schema/portfolios");
   const [started] = await db
-    .select({ id: portfolio.id })
+    .select({ id: portfolio.id, status: portfolio.status })
     .from(portfolio)
     .where(eq(portfolio.groupId, mine.groupId))
     .limit(1);
+  const cta = projectOpenCta(started?.status ?? null);
   const myGroup: SubmissionGroupCard = {
     id: mine.groupId,
     name: mine.name,
     maxMembers: mine.maxMembers,
     memberCount,
     projectStarted: Boolean(started),
+    moderationLocked: Boolean(started && isGroupMoveLockedForModeration(started.status)),
     members: people.map((person) => ({
       userId: person.id,
       name: person.name,
@@ -624,6 +811,13 @@ export async function getSubmissionPrepareState(input: {
       type: "GROUP",
     }),
     myGroup,
+    portfolioId: started?.id ?? null,
+    projectStatus: started?.status ?? null,
+    ctaLabel: started ? cta.label : "Prepare project",
+    ctaTitle: started ? cta.title : "Prepare project",
+    ctaDescription: started
+      ? cta.description
+      : "Open the project page to save a draft or submit while the window is open.",
   };
 }
 

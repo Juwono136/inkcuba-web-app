@@ -11,11 +11,12 @@ import {
   submissionStatusLabel,
   submissionTypeLabel,
 } from "@/components/workspaces/submission-format";
+import { SubmissionRubricView } from "@/components/projects/submission-rubric-view";
 import { plainTextFromHtml } from "@/lib/settings/plain-text";
 import { cn } from "@/lib/utils";
 import type { SubmissionRecord } from "@/lib/workspaces/submissions/types";
 
-const DESCRIPTION_PREVIEW_CHARS = 280;
+const DESCRIPTION_PREVIEW_CHARS = 160;
 
 export function SubmissionBackLink({
   onClick,
@@ -154,6 +155,11 @@ export function SubmissionDetailCard({
         />
       </dl>
       {afterMeta ? <div className="border-t border-slate-100 px-4 py-4 sm:px-5">{afterMeta}</div> : null}
+      {item.rubric && item.rubric.length > 0 ? (
+        <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+          <SubmissionRubricView components={item.rubric} maxScore={item.maxScore} />
+        </div>
+      ) : null}
       <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
         <p className="text-[11px] font-bold tracking-[0.12em] text-slate-500 uppercase">
           Description

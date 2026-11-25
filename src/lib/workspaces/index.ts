@@ -12,9 +12,11 @@ export {
   removeWorkspaceBackground,
   uploadDescriptionImageForWorkspace,
   uploadTmpDescriptionImage,
+} from "@/lib/workspaces/service";
+export {
   assertStudentCanAccessWorkspace,
   assertStudentCanAccessWorkspaceByInviteCode,
-} from "@/lib/workspaces/service";
+} from "@/lib/workspaces/student-access";
 export { WORKSPACE_SOFT_DELETE_RETENTION_DAYS } from "@/lib/workspaces/constants";
 export type {
   WorkspaceRecord,

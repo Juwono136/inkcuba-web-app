@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { workspace, workspaceMember } from "@/db/schema/workspaces";
 import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
-import { assertStudentCanAccessWorkspace } from "@/lib/workspaces/service";
+import { assertStudentCanAccessWorkspace } from "@/lib/workspaces/student-access";
 
 export async function loadOwnedWorkspace(workspaceId: string, lecturerId: string) {
   const rows = await db

@@ -52,6 +52,7 @@ type SubmissionGroupBoardProps = {
   /** Group the signed-in student already belongs to. */
   prepareGroupId?: string | null;
   onPrepareProject?: () => void;
+  prepareCtaLabel?: string;
 };
 
 const UNASSIGNED = "unassigned";
@@ -81,6 +82,7 @@ export function SubmissionGroupBoard({
   viewerUserId,
   prepareGroupId = null,
   onPrepareProject,
+  prepareCtaLabel = "Prepare project",
 }: SubmissionGroupBoardProps) {
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
@@ -238,15 +240,21 @@ export function SubmissionGroupBoard({
     if (!board || locked) return;
     const destination = input.toGroupId ?? UNASSIGNED;
     if (input.fromGroupId === destination) return;
+    const from = board.groupOptions.find((option) => option.id === input.fromGroupId);
+    const target = input.toGroupId
+      ? board.groupOptions.find((option) => option.id === input.toGroupId)
+      : null;
+    if (from?.moderationLocked || target?.moderationLocked) {
+      toast.error(
+        "This group is in lecturer review or already published. Members cannot be moved until a revision is requested.",
+      );
+      return;
+    }
     if (mode === "student") {
-      const from = board.groupOptions.find((option) => option.id === input.fromGroupId);
       if (from?.projectStarted) {
         toast.error("Your group has started a project. Only your lecturer can move you.");
         return;
       }
-      const target = input.toGroupId
-        ? board.groupOptions.find((option) => option.id === input.toGroupId)
-        : null;
       if (target?.projectStarted) {
         toast.error("That group has already started a project. Ask your lecturer if you need to join it.");
         return;
@@ -379,7 +387,12 @@ export function SubmissionGroupBoard({
               type="button"
               variant="outline"
               className="border-slate-900"
-              disabled={locked || busy}
+              disabled={locked || busy || data.hasStartedProjects}
+              title={
+                data.hasStartedProjects
+                  ? "A group has already started a project. Move students one by one instead of reshuffling."
+                  : undefined
+              }
               onClick={() => setConfirmRandom(true)}
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
@@ -430,14 +443,16 @@ export function SubmissionGroupBoard({
           {data.seatCapacity} seats in total.
         </p>
       ) : null}
-      {mode === "student" ? (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">Groups stay put once a project starts</p>
-          <p className="mt-1 leading-relaxed">
-            You can join a group that has not started a project yet. After someone opens Prepare project, members of that group can only be moved by the lecturer.
-          </p>
-        </div>
-      ) : null}
+      <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+        <p className="font-semibold text-slate-900">
+          {mode === "student" ? "Groups stay put once a project starts" : "Group moves by project stage"}
+        </p>
+        <p className="mt-1 leading-relaxed">
+          {mode === "student"
+            ? "You can join a group that has not started a project yet. After prepare starts, only your lecturer can move members. Groups that are submitted, in review, revised, or published stay locked for everyone until a revision is requested."
+            : "Draft groups stay movable. After submit / in review / revised / published, that group’s members lock. Moves unlock again for draft work or when a revision is requested. Random reshuffle is blocked once any project exists."}
+        </p>
+      </div>
       <p className="text-xs leading-relaxed text-slate-500">
         {mode === "student"
           ? "Open your group from the shortcut above, or scroll to the group cards. A move still asks for confirmation."
@@ -538,9 +553,19 @@ export function SubmissionGroupBoard({
               tone="group"
               count={group.memberCount}
               max={group.maxMembers}
-              locked={locked || (mode === "student" && group.projectStarted && group.id !== prepareGroupId)}
+              locked={
+                locked ||
+                group.moderationLocked ||
+                (mode === "student" && group.projectStarted && group.id !== prepareGroupId)
+              }
               projectStarted={group.projectStarted}
-              canDelete={mode === "lecturer" && group.memberCount === 0}
+              moderationLocked={group.moderationLocked}
+              canDelete={
+                mode === "lecturer" &&
+                group.memberCount === 0 &&
+                !group.moderationLocked &&
+                !group.projectStarted
+              }
               onDelete={() => setPendingDelete({ id: group.id, name: group.name })}
               yours={mode === "student" && group.id === prepareGroupId}
               footer={
@@ -562,7 +587,7 @@ export function SubmissionGroupBoard({
                       toast.message("Join this group before preparing the project.");
                     }}
                   >
-                    Prepare project
+                    {group.id === prepareGroupId ? prepareCtaLabel : "Prepare project"}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 ) : null
@@ -577,22 +602,27 @@ export function SubmissionGroupBoard({
                   member={member}
                   draggable={
                     !locked &&
+                    !group.moderationLocked &&
                     (mode === "lecturer" ||
                       (member.userId === viewerUserId && !group.projectStarted))
                   }
                   mine={member.userId === viewerUserId}
                   stayNote={
-                    mode === "student" && member.userId === viewerUserId && group.projectStarted
-                      ? "Only your lecturer can move you now."
-                      : null
+                    group.moderationLocked
+                      ? "Moves locked during lecturer review."
+                      : mode === "student" && member.userId === viewerUserId && group.projectStarted
+                        ? "Only your lecturer can move you now."
+                        : null
                   }
                   fromGroupId={group.id}
                   selectEpoch={selectEpoch}
                   options={(mode === "lecturer"
-                    ? data.groupOptions
-                    : data.groupOptions.filter((option) => !option.projectStarted)
+                    ? data.groupOptions.filter((option) => !option.moderationLocked)
+                    : data.groupOptions.filter(
+                        (option) => !option.projectStarted && !option.moderationLocked,
+                      )
                   ).filter((option) => option.id !== group.id)}
-                  allowUnassigned={mode === "lecturer"}
+                  allowUnassigned={mode === "lecturer" && !group.moderationLocked}
                   onMove={(toGroupId) =>
                     requestMove({
                       userId: member.userId,
@@ -699,6 +729,7 @@ function GroupColumn({
   onDelete,
   yours = false,
   projectStarted = false,
+  moderationLocked = false,
   footer,
   children,
 }: {
@@ -712,6 +743,7 @@ function GroupColumn({
   onDelete?: () => void;
   yours?: boolean;
   projectStarted?: boolean;
+  moderationLocked?: boolean;
   footer?: ReactNode;
   children: ReactNode;
 }) {
@@ -746,8 +778,12 @@ function GroupColumn({
                 Full
               </span>
             ) : null}
-            {projectStarted ? (
+            {moderationLocked ? (
               <span className="inline-flex shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] leading-4 font-bold tracking-wide text-violet-800 uppercase">
+                In review
+              </span>
+            ) : projectStarted ? (
+              <span className="inline-flex shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] leading-4 font-bold tracking-wide text-sky-800 uppercase">
                 Project started
               </span>
             ) : null}

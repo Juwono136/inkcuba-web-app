@@ -93,13 +93,16 @@ Submission descriptions are rich text only (no image upload). Student project fi
 
 | Asset | Prefix | Max size | Notes |
 |---|---|---|---|
-| Overview images | `projects/{portfolioId}/` | **12MB** each, 1–3 required on submit | JPEG, PNG, WebP, TIFF. `sharp` keeps the original dimensions until the longest edge would pass **4096 px**, then writes JPEG (mozjpeg, quality 90) and strips metadata. Replace uploads the new object, saves the key, then deletes the old one |
-| Overview video | `projects/{portfolioId}/` | **100MB**, **3 minutes**, optional, one file | MP4, WebM, or MOV. The server re-encodes with `ffmpeg` to H.264 CRF 20 at the same resolution (even dimensions), then deletes the original. If `ffmpeg` is not installed, the upload is rejected with a clear message |
-| Documents | `projects/{portfolioId}/` | **20MB** each | One required project file and up to 3 additional files. PDF, JPG, JPEG, PNG, EPS, PSD, TIFF, WebP, SVG, CDR. Raster, PDF, and SVG are checked by magic bytes. SVG scripts are stripped. EPS, PSD, and CDR are stored as-is after extension, size, and an HTML-look rejection. Raster documents use the same JPEG compression as overview images |
+| Overview images | `projects/{portfolioId}/overview/` | **12MB** each, **1–3** (required on submit) | JPG/PNG/WebP/TIFF. `sharp` compresses to JPEG (mozjpeg q90, max edge 4096). **Add**, **Replace** (`POST .../images/{imageId}`), and **Remove**. Replace uploads a new key, updates the row, then deletes the previous object. Remove deletes the DB row, reindexes cover/`sortOrder`, then deletes the SeaweedFS object (retry once on failure) |
+| Overview video | `projects/{portfolioId}/video/` | **100MB**, **≤3 minutes**, optional, one file | MP4/WebM/MOV. Duration always probed; re-encode H.264. **Replace:** upload new → lock row → update DB → delete previous key only if it differs. **Remove:** delete DB row → delete storage key. Failed DB writes compensate by deleting the new object |
+| Project documentation | `projects/{portfolioId}/docs/` | **20MB**, one required | PDF, JPG, PNG, EPS, PSD, TIFF, WebP, SVG, CDR. Replace updates DB then deletes the old key. SVG with scripts/handlers is **rejected** |
+| Additional documentation | `projects/{portfolioId}/additional/` | **20MB** each, up to **3** | Same formats as project docs |
 
-Hard-deleting a student project removes every stored overview image, video, and document key for that portfolio after the database row is deleted, so SeaweedFS does not keep orphans. Archive leaves objects in place.
+`/api/media/projects/...` requires a signed-in contributor, owning lecturer, or admin (`Cache-Control: private`). Avatar and workspace media stay publicly readable via the proxy.
 
-`ffmpeg` and `ffprobe` must be on the server `PATH` for video uploads. Image and document uploads do not need them.
+Hard-deleting a student project removes DB children then best-effort deletes collected SeaweedFS keys. Media writes use portfolio row locks and compensating deletes so failed commits do not leave new orphans. **Archive** / **Restore** leave SeaweedFS objects in place (status-only).
+
+Video tools: `src/lib/projects/video-tools.ts` prefers `FFMPEG_PATH`/`FFPROBE_PATH` (and `FFMPEG_BIN`), then absolute paths under `process.cwd()/node_modules/...` for `ffmpeg-static` / `ffprobe-static` (no `createRequire` — webpack RSC breaks it), then a verified PATH binary. Images and documents never need them.
 
 Default background in UI (no storage object): brand gradient + inkcuba logo.
 

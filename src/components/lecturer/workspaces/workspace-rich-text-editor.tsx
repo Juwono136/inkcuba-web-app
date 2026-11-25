@@ -100,7 +100,7 @@ export function WorkspaceRichTextEditor({
         openOnClick: false,
         autolink: true,
         defaultProtocol: "https",
-        protocols: ["http", "https"],
+        // Do not re-register http/https — linkify warns when schemes are registered twice.
         HTMLAttributes: {
           rel: "noopener noreferrer",
           target: "_blank",

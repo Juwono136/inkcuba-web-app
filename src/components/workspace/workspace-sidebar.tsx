@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ClipboardList,
   FolderKanban,
   LayoutDashboard,
   PanelLeftClose,
@@ -25,7 +26,7 @@ const SIDEBAR_WIDTH_CLASS = "w-64"; // 16rem — stable on all desktop sizes
 const ICONS = {
   overview: LayoutDashboard,
   settings: Settings,
-  portfolios: FolderKanban,
+  portfolios: ClipboardList,
   workspaces: FolderKanban,
 } as const;
 

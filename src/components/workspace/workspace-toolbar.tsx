@@ -26,9 +26,9 @@ export function WorkspaceToolbar({
 
   return (
     <div className="sticky top-16 z-20 border-b border-slate-200 bg-white">
-      <div className="flex h-12 items-center gap-2 px-3 sm:gap-3 sm:px-6">
+      <div className="flex h-12 min-w-0 items-center gap-2 overflow-hidden px-3 sm:gap-3 sm:px-6">
         <WorkspaceSidebarToggle open={sidebarOpen} onToggle={onToggleSidebar} />
-        <AppBreadcrumb items={breadcrumbs} className="min-w-0 flex-1" />
+        <AppBreadcrumb items={breadcrumbs} className="min-w-0 flex-1 overflow-hidden" />
       </div>
     </div>
   );

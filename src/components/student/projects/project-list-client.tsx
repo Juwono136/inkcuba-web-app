@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, FolderOpen, Pencil, Search, Trash2 } from "lucide-react";
+import { ArchiveRestore, ArrowUpRight, FolderOpen, Pencil, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -27,6 +27,8 @@ type ProjectList = {
     id: string;
     title: string;
     status: ProjectStatus;
+    grade: number | null;
+    feedback: string | null;
     updatedAt: string;
     workspaceName: string | null;
     className: string | null;
@@ -35,6 +37,7 @@ type ProjectList = {
     kind: "INDIVIDUAL" | "GROUP";
     canEdit: boolean;
     canDelete: boolean;
+    canUnarchive: boolean;
     accessLabel: string;
     isDetached: boolean;
     submissionHref: string | null;
@@ -54,6 +57,7 @@ export function ProjectListClient() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [pendingDelete, setPendingDelete] = useState<ProjectList["items"][number] | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<ProjectList["items"][number] | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -96,14 +100,40 @@ export function ProjectListClient() {
     }
   }
 
+  async function confirmRestore() {
+    if (!pendingRestore) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/student/projects/${pendingRestore.id}/unarchive`, {
+        method: "POST",
+      });
+      const result = await readApiJson<{ status: ProjectStatus }>(
+        response,
+        "Unable to restore the project",
+      );
+      toast.success(
+        result.status === "NEED_REVISION"
+          ? "Project restored — revision is open again"
+          : "Project restored to draft",
+      );
+      setPendingRestore(null);
+      await queryClient.invalidateQueries({ queryKey: ["student-projects"] });
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Unable to restore the project");
+      throw caught;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="font-heading text-2xl font-bold text-slate-900 sm:text-3xl">Project lists</h1>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">
-          Your lasting project records. Open a card to view, edit, or delete when allowed. Prepare project from a live
-          submission is a separate step — this list keeps every project even after a workspace, group change, or
-          submission is removed.
+          Your lasting project records. Open a card to view, edit, restore, or delete when allowed. Prepare project from
+          a live submission is a separate step — this list keeps every project even after a workspace, group change, or
+          submission is removed. Archived projects stay here as read-only until you restore them.
         </p>
       </div>
       <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center">
@@ -176,6 +206,16 @@ export function ProjectListClient() {
                     {item.accessLabel}
                   </span>
                 </div>
+                {item.status === "PUBLISHED" && item.grade != null ? (
+                  <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
+                    Score {item.grade}
+                  </p>
+                ) : null}
+                {item.status === "NEED_REVISION" && item.feedback ? (
+                  <p className="mt-3 line-clamp-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
+                    {item.feedback}
+                  </p>
+                ) : null}
                 <div className="mt-4 space-y-3 text-sm">
                   <div>
                     <p className="text-[10px] font-bold tracking-wide text-slate-400 uppercase">Workspace</p>
@@ -206,6 +246,17 @@ export function ProjectListClient() {
                       Submission
                     </Button>
                   ) : null}
+                  {item.canUnarchive ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                      onClick={() => setPendingRestore(item)}
+                    >
+                      <ArchiveRestore className="h-4 w-4" />
+                      Restore
+                    </Button>
+                  ) : null}
                   {item.canDelete ? (
                     <Button
                       type="button"
@@ -234,6 +285,17 @@ export function ProjectListClient() {
           />
         </>
       ) : null}
+      <ConfirmDialog
+        open={pendingRestore !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRestore(null);
+        }}
+        title="Restore this project?"
+        description="The project returns to an editable status (draft, or revision if the submission window is still open). Files already in storage stay attached."
+        confirmLabel="Restore project"
+        loading={busy}
+        onConfirm={confirmRestore}
+      />
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => {

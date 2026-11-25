@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
     "pino-pretty",
     "nodemailer",
     "ioredis",
+    // Keep BullMQ (and its optional Valkey peer) out of the webpack graph so
+    // student/lecturer API compiles do not warn on `@valkey/valkey-glide`.
+    "bullmq",
+    // Keep binary path packages outside the webpack bundle (__dirname must stay real).
+    "ffmpeg-static",
+    "ffprobe-static",
+    "sharp",
   ],
   images: {
     remotePatterns: [

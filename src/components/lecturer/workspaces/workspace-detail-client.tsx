@@ -22,6 +22,7 @@ import {
   type WorkspaceFormValues,
 } from "@/components/lecturer/workspaces/workspace-form";
 import { WorkspacePeopleTab } from "@/components/lecturer/workspaces/people/workspace-people-tab";
+import { LecturerScoringTab } from "@/components/lecturer/workspaces/scoring/lecturer-scoring-tab";
 import { LecturerSubmissionTab } from "@/components/lecturer/workspaces/submissions/lecturer-submission-tab";
 import { SubmissionInfoCard } from "@/components/workspaces/submission-info-card";
 import { Button } from "@/components/ui/button";
@@ -474,12 +475,7 @@ export function WorkspaceDetailClient({
         {tab === "submission" ? (
           <LecturerSubmissionTab workspaceId={workspaceId} />
         ) : null}
-        {tab === "scoring" ? (
-          <ComingSoonPanel
-            title="Scoring"
-            description="Soon you’ll grade, give feedback, and monitor portfolio status for every submission in this workspace."
-          />
-        ) : null}
+        {tab === "scoring" ? <LecturerScoringTab workspaceId={workspaceId} /> : null}
       </motion.div>
 
       <Dialog

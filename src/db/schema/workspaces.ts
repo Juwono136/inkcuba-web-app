@@ -287,6 +287,29 @@ export const assignment = pgTable(
   ],
 );
 
+export const assignmentRubricComponent = pgTable(
+  "assignment_rubric_component",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignment.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    weightPercent: integer("weight_percent").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("assignment_rubric_component_assignment_id_idx").on(table.assignmentId),
+    index("assignment_rubric_component_sort_idx").on(table.assignmentId, table.sortOrder),
+  ],
+);
+
 export const assignmentGroup = pgTable(
   "assignment_group",
   {

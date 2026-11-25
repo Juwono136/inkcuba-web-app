@@ -26,6 +26,37 @@ export const portfolioDocumentRoleEnum = pgEnum("portfolio_document_role", [
   "ADDITIONAL",
 ]);
 
+export const portfolioEventActorRoleEnum = pgEnum("portfolio_event_actor_role", [
+  "STUDENT",
+  "LECTURER",
+  "SYSTEM",
+]);
+
+export const portfolioEventTypeEnum = pgEnum("portfolio_event_type", [
+  "CREATED",
+  "SUBMITTED",
+  "REVIEW_STARTED",
+  "REVISION_REQUESTED",
+  "RESUBMITTED",
+  "PUBLISHED",
+  "ARCHIVED",
+  "UNARCHIVED",
+  "DELETED",
+]);
+
+export const projectEmailTemplateEnum = pgEnum("project_email_template", [
+  "PROJECT_SUBMITTED_STUDENT",
+  "PROJECT_SUBMITTED_LECTURER",
+  "PROJECT_REVISION_REQUESTED",
+  "PROJECT_PUBLISHED",
+]);
+
+export const projectEmailOutboxStatusEnum = pgEnum("project_email_outbox_status", [
+  "PENDING",
+  "SENT",
+  "FAILED",
+]);
+
 export const assignmentTypeEnum = pgEnum("assignment_type", [
   "INDIVIDUAL",
   "GROUP",
@@ -46,6 +77,17 @@ export const assignmentStatusEnum = pgEnum("assignment_status", [
 export const assignmentScheduleModeEnum = pgEnum("assignment_schedule_mode", [
   "OPEN",
   "WINDOW",
+]);
+
+export const portfolioScoreDecisionEnum = pgEnum("portfolio_score_decision", [
+  "PUBLISH",
+  "REVISION",
+]);
+
+export const portfolioScoringModeEnum = pgEnum("portfolio_scoring_mode", [
+  "INDIVIDUAL",
+  "GROUP_ONLY",
+  "GROUP_AND_INDIVIDUAL",
 ]);
 
 export const workspaceMemberStatusEnum = pgEnum("workspace_member_status", [
