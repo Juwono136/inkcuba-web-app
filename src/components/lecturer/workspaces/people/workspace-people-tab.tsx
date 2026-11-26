@@ -965,9 +965,10 @@ function ImportExcelDialog({
   }, [open]);
 
   useEffect(() => {
-    if (!job || (job.status !== "COMMITTING" && job.status !== "COMPLETED")) {
+    if (!job || job.status !== "COMMITTING") {
       return;
     }
+    let cancelled = false;
     const timer = window.setInterval(async () => {
       try {
         const data = await fetchJson<{
@@ -976,17 +977,23 @@ function ImportExcelDialog({
         }>(
           `/api/lecturer/workspaces/${workspaceId}/members/import/${job.id}?page=1&pageSize=100`,
         );
+        if (cancelled) return;
         setJob(data.job);
         setItems(data.items);
         if (data.job.status === "COMPLETED") {
           toast.success("Import completed");
           await onCommitted();
+        } else if (data.job.status === "FAILED") {
+          toast.error("Import failed. Fix the file or try Commit again.");
         }
       } catch {
         // ignore transient poll errors
       }
-    }, 1500);
-    return () => window.clearInterval(timer);
+    }, 1200);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [job, workspaceId, onCommitted]);
 
   async function onUpload(file: File | null) {

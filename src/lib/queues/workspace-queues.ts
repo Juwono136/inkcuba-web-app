@@ -1,6 +1,8 @@
 import { Queue, type ConnectionOptions } from "bullmq";
 
+import { addOrReuseBullJob } from "@/lib/queues/add-or-reuse-job";
 import { getBullConnectionFromEnv } from "@/lib/queues/connection";
+import { bullJobId } from "@/lib/queues/job-id";
 
 export const WORKSPACE_IMPORT_QUEUE = "workspace-import";
 export const WORKSPACE_INVITE_EMAIL_QUEUE = "workspace-invite-email";
@@ -43,7 +45,7 @@ export function getWorkspaceImportQueue() {
       defaultJobOptions: {
         removeOnComplete: 100,
         removeOnFail: 200,
-        attempts: 3,
+        attempts: 5,
         backoff: { type: "exponential", delay: 2000 },
       },
     });
@@ -71,19 +73,30 @@ export function getBullConnectionOptions(): ConnectionOptions {
   return getBullConnection();
 }
 
+/**
+ * One active BullMQ job per import commit. Stable id prevents two workers from
+ * processing the same Excel commit chunks in parallel (duplicate members/emails).
+ * Continuation after a chunk removes the completed job and re-queues the same id.
+ */
 export async function enqueueImportJob(
   name: WorkspaceImportJobName,
   data: WorkspaceImportJobData,
 ) {
   const queue = getWorkspaceImportQueue();
-  return queue.add(name, data, {
-    jobId: `${name}:${data.jobId}:${Date.now()}`,
-  });
+  return addOrReuseBullJob(
+    queue,
+    name,
+    data,
+    bullJobId(name, data.jobId),
+  );
 }
 
 export async function enqueueInviteEmail(data: WorkspaceInviteEmailJobData) {
   const queue = getWorkspaceInviteEmailQueue();
-  return queue.add("send-invite-email", data, {
-    jobId: `email:${data.outboxId}`,
-  });
+  return addOrReuseBullJob(
+    queue,
+    "send-invite-email",
+    data,
+    bullJobId("invite-email", data.outboxId),
+  );
 }

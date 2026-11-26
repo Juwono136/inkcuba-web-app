@@ -72,7 +72,15 @@ Services: `src/lib/email/services/workspace-invite.ts`. Worker: `npm run worker`
 
 ### Project moderation emails
 
-Queued via BullMQ (`project-email`) and audited in `project_email_outbox`. Outbox insert + Redis enqueue happens after the DB write so email failures never roll back submit/moderation. The worker retries failed sends; high volume is handled by the queue (concurrent workers via PM2 / `npm run worker`).
+Queued via BullMQ (`project-email`) and audited in `project_email_outbox`.
+
+**Reliability rules**
+- Outbox rows are inserted in the same DB transaction as submit/moderation state changes.
+- BullMQ enqueue runs **after** the transaction commits (submit notifies post-commit; lecturer moderate collects outbox ids and dispatches after commit) so workers never race an uncommitted row.
+- Custom BullMQ job ids must **not** contain `:` (BullMQ forbids it). Ids use hyphen form such as `project-email-{outboxId}` / `invite-email-{outboxId}`.
+- If Redis enqueue fails, the outbox stays `PENDING`. The worker runs an outbox recovery sweep on startup and every ~60s to re-queue stale `PENDING` / retryable `FAILED` rows (attempt cap 5).
+- Email send failures never roll back submit/moderation.
+- Invite emails from Excel import are also outbox-backed: bulk commits enqueue one job per recipient; recovery covers Redis blips the same way.
 
 | Template | When | Audience |
 |---|---|---|
@@ -130,6 +138,8 @@ Included in `/api/health?detailed=true` when authorized.
 | Symptom | Likely cause | Action |
 |---|---|---|
 | No email received | Wrong SMTP credentials / blocked App Password | Recheck `SMTP_*`, Gmail 2FA app password |
+| Project/invite email stuck | Worker not running, or enqueue failed | Ensure `npm run worker` / PM2 `inkcuba-worker`; check logs for `Custom Id cannot contain :` (fixed — job ids must not use `:`) and `outbox recovery` |
+| Outbox `PENDING` forever | Redis down at enqueue time | Worker recovery re-queues stale pending/failed rows automatically |
 | Logo looks squashed | Forced square height/width in HTML | Keep `height:auto` + Cloudinary `c_scale` |
 | Verification not required | Misconfigured Better Auth flags | Confirm `requireEmailVerification` |
 | Reset link invalid | Expired token / wrong redirect URL | Request new link; confirm `NEXT_PUBLIC_APP_URL` |

@@ -20,6 +20,7 @@ import {
   ValidationError,
 } from "@/lib/api/errors";
 import { resolveDirectoryLabels } from "@/lib/directory/service";
+import { logger } from "@/lib/logger";
 import { enqueueInviteEmail } from "@/lib/queues";
 import { toMediaProxyUrl } from "@/lib/workspaces/sanitize-description";
 import { deleteUserGroupsInWorkspace } from "@/lib/workspaces/submissions/groups";
@@ -321,7 +322,15 @@ export async function createInvitationOutbox(input: {
       recipientName: input.recipient,
     },
   });
-  await enqueueInviteEmail({ outboxId });
+  try {
+    await enqueueInviteEmail({ outboxId });
+  } catch (error) {
+    // Outbox row stays PENDING; worker recovery will re-queue.
+    logger.warn(
+      { err: error, outboxId },
+      "Invite email enqueue failed; worker can retry later",
+    );
+  }
   return outboxId;
 }
 

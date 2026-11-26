@@ -231,11 +231,11 @@ export function WorkspaceRichTextEditor({
     <>
       <div
         className={cn(
-          "overflow-hidden rounded-xl border-2 border-slate-900 bg-white transition-opacity",
+          "flex max-h-[min(28rem,65vh)] flex-col overflow-hidden rounded-xl border-2 border-slate-900 bg-white transition-opacity",
           disabled && "pointer-events-none opacity-70",
         )}
       >
-        <div className="flex flex-wrap gap-1 border-b-2 border-slate-200 bg-slate-50 p-2">
+        <div className="sticky top-0 z-10 flex shrink-0 flex-wrap gap-1 border-b-2 border-slate-200 bg-slate-50 p-2 shadow-[0_1px_0_rgba(15,23,42,0.04)]">
           <ToolbarButton
             label="Bold"
             active={editor.isActive("bold")}
@@ -312,10 +312,10 @@ export function WorkspaceRichTextEditor({
           />
           ) : null}
         </div>
-        <div className="relative">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {editor.isEmpty ? (
             <p
-              className="pointer-events-none absolute top-2 left-3 text-sm text-slate-400 select-none"
+              className="pointer-events-none absolute top-2 left-3 z-[1] text-sm text-slate-400 select-none"
               aria-hidden
             >
               {placeholder}

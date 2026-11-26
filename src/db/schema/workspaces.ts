@@ -184,6 +184,10 @@ export const workspaceImportJobItem = pgTable(
   },
   (table) => [
     index("workspace_import_job_item_job_id_idx").on(table.jobId),
+    index("workspace_import_job_item_job_status_idx").on(
+      table.jobId,
+      table.status,
+    ),
     uniqueIndex("workspace_import_job_item_row_idx").on(
       table.jobId,
       table.rowIndex,

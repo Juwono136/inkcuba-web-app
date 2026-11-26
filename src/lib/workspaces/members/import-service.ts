@@ -182,17 +182,22 @@ export async function createImportJobFromUpload(input: {
       );
     }
 
-    await db.insert(workspaceImportJobItem).values(
-      parsed.map((row) => ({
-        id: crypto.randomUUID(),
-        jobId,
-        rowIndex: row.rowIndex,
-        payload: row.payload,
-        validation: row.validation,
-        resolvedUserId: row.resolvedUserId,
-        status: "PENDING" as const,
-      })),
-    );
+    const itemRows = parsed.map((row) => ({
+      id: crypto.randomUUID(),
+      jobId,
+      rowIndex: row.rowIndex,
+      payload: row.payload,
+      validation: row.validation,
+      resolvedUserId: row.resolvedUserId,
+      status: "PENDING" as const,
+    }));
+    // Batch inserts keep large Excel uploads (up to WORKSPACE_IMPORT_MAX_ROWS) responsive.
+    const INSERT_BATCH = 250;
+    for (let offset = 0; offset < itemRows.length; offset += INSERT_BATCH) {
+      await db
+        .insert(workspaceImportJobItem)
+        .values(itemRows.slice(offset, offset + INSERT_BATCH));
+    }
 
     const errorCount = parsed.filter(
       (r) => r.validation.errors.length > 0,
@@ -534,11 +539,30 @@ export async function commitImportJob(input: {
     })
     .where(eq(workspaceImportJob.id, job.id));
 
-  await enqueueImportJob("commit-import", {
-    jobId: job.id,
-    workspaceId: ws.id,
-    lecturerId: input.lecturerId,
-  });
+  try {
+    await enqueueImportJob("commit-import", {
+      jobId: job.id,
+      workspaceId: ws.id,
+      lecturerId: input.lecturerId,
+    });
+  } catch (error) {
+    await db
+      .update(workspaceImportJob)
+      .set({
+        status: "READY",
+        metadata: {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to enqueue import commit; try again",
+        },
+      })
+      .where(eq(workspaceImportJob.id, job.id));
+    logger.error({ err: error, jobId: job.id }, "Import commit enqueue failed");
+    throw new ValidationError(
+      "Could not start the import worker. Check Redis/worker, then try Commit again.",
+    );
+  }
 
   await createAuditLog({
     actorId: input.lecturerId,
@@ -553,7 +577,7 @@ export async function commitImportJob(input: {
   return getImportJob(input);
 }
 
-/** Worker: process commit-import in chunks. */
+/** Worker: process commit-import in chunks until the job finishes. */
 export async function processImportCommitJob(input: {
   jobId: string;
   workspaceId: string;
@@ -589,30 +613,33 @@ export async function processImportCommitJob(input: {
     { category: "semester", value: ws.semester },
   ]);
 
-  const pending = await db
-    .select()
-    .from(workspaceImportJobItem)
-    .where(
-      and(
-        eq(workspaceImportJobItem.jobId, job.id),
-        eq(workspaceImportJobItem.status, "PENDING"),
-      ),
-    )
-    .orderBy(asc(workspaceImportJobItem.rowIndex))
-    .limit(chunk);
+  // One BullMQ job drains all chunks. Re-enqueue-per-chunk + stable job ids
+  // would no-op while the current job is still active.
+  for (;;) {
+    const pending = await db
+      .select()
+      .from(workspaceImportJobItem)
+      .where(
+        and(
+          eq(workspaceImportJobItem.jobId, job.id),
+          eq(workspaceImportJobItem.status, "PENDING"),
+        ),
+      )
+      .orderBy(asc(workspaceImportJobItem.rowIndex))
+      .limit(chunk);
 
-  if (pending.length === 0) {
-    await db
-      .update(workspaceImportJob)
-      .set({
-        status: "COMPLETED",
-        committedAt: new Date(),
-      })
-      .where(eq(workspaceImportJob.id, job.id));
-    await deleteWorkspaceImportFile(job.fileKey);
-    logger.info({ jobId: job.id }, "Workspace import commit completed");
-    return;
-  }
+    if (pending.length === 0) {
+      await db
+        .update(workspaceImportJob)
+        .set({
+          status: "COMPLETED",
+          committedAt: new Date(),
+        })
+        .where(eq(workspaceImportJob.id, job.id));
+      await deleteWorkspaceImportFile(job.fileKey);
+      logger.info({ jobId: job.id }, "Workspace import commit completed");
+      return;
+    }
 
   for (const item of pending) {
     try {
@@ -821,51 +848,23 @@ export async function processImportCommitJob(input: {
     }
   }
 
-  const [processed] = await db
-    .select({ total: count() })
-    .from(workspaceImportJobItem)
-    .where(
-      and(
-        eq(workspaceImportJobItem.jobId, job.id),
-        inArray(workspaceImportJobItem.status, [
-          "SUCCESS",
-          "SKIPPED",
-          "FAILED",
-        ]),
-      ),
-    );
+    const [processed] = await db
+      .select({ total: count() })
+      .from(workspaceImportJobItem)
+      .where(
+        and(
+          eq(workspaceImportJobItem.jobId, job.id),
+          inArray(workspaceImportJobItem.status, [
+            "SUCCESS",
+            "SKIPPED",
+            "FAILED",
+          ]),
+        ),
+      );
 
-  await db
-    .update(workspaceImportJob)
-    .set({ processedCount: processed?.total ?? 0 })
-    .where(eq(workspaceImportJob.id, job.id));
-
-  // Re-enqueue until done
-  const remaining = await db
-    .select({ id: workspaceImportJobItem.id })
-    .from(workspaceImportJobItem)
-    .where(
-      and(
-        eq(workspaceImportJobItem.jobId, job.id),
-        eq(workspaceImportJobItem.status, "PENDING"),
-      ),
-    )
-    .limit(1);
-
-  if (remaining[0]) {
-    await enqueueImportJob("commit-import", {
-      jobId: job.id,
-      workspaceId: input.workspaceId,
-      lecturerId: input.lecturerId,
-    });
-  } else {
     await db
       .update(workspaceImportJob)
-      .set({
-        status: "COMPLETED",
-        committedAt: new Date(),
-      })
+      .set({ processedCount: processed?.total ?? 0 })
       .where(eq(workspaceImportJob.id, job.id));
-    await deleteWorkspaceImportFile(job.fileKey);
   }
 }

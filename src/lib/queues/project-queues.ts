@@ -1,6 +1,8 @@
 import type { ConnectionOptions, Queue } from "bullmq";
 
+import { addOrReuseBullJob } from "@/lib/queues/add-or-reuse-job";
 import { getBullConnectionFromEnv } from "@/lib/queues/connection";
+import { bullJobId } from "@/lib/queues/job-id";
 
 export const PROJECT_EMAIL_QUEUE = "project-email";
 
@@ -44,7 +46,10 @@ export async function getProjectEmailQueue() {
 
 export async function enqueueProjectEmail(data: ProjectEmailJobData) {
   const queue = await getProjectEmailQueue();
-  return queue.add("send-project-email", data, {
-    jobId: `project-email:${data.outboxId}`,
-  });
+  return addOrReuseBullJob(
+    queue,
+    "send-project-email",
+    data,
+    bullJobId("project-email", data.outboxId),
+  );
 }

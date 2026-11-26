@@ -24,7 +24,10 @@ import {
 } from "@/db/schema/workspaces";
 import { createAuditLog } from "@/lib/audit";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors";
-import { enqueueProjectNotification } from "@/lib/email/services/project-notify";
+import {
+  dispatchProjectEmailOutboxes,
+  enqueueProjectNotification,
+} from "@/lib/email/services/project-notify";
 import { getRedisClient } from "@/lib/redis";
 import { siteConfig } from "@/config/site";
 import { recordPortfolioEvent } from "@/lib/projects/events";
@@ -179,6 +182,7 @@ export async function lecturerModerateProject(input: {
   }
 
   try {
+    const emailOutboxIds: string[] = [];
     const result = await db.transaction(async (tx) => {
       await loadOwnedWorkspace(input.workspaceId, input.lecturerId);
       const [current] = await tx
@@ -272,26 +276,32 @@ export async function lecturerModerateProject(input: {
         const recipients = await loadContributorEmails(current.id);
         const deadlineLabel = formatDeadline(slot.closesAt, slot.scheduleMode);
         for (const person of recipients) {
-          await enqueueProjectNotification(tx, {
-            portfolioId: current.id,
-            workspaceId: input.workspaceId,
-            recipient: person.email,
-            template: "PROJECT_REVISION_REQUESTED",
-            payload: {
-              recipientName: person.name,
-              projectTitle: current.title,
-              workspaceName: current.workspaceName ?? "Workspace",
-              submissionTitle: current.submissionTitle ?? slot.title,
-              ctaUrl: `${appBaseUrl()}/dashboard/student/projects/${current.id}?source=lists`,
-              feedback: feedbackPlain,
-              deadlineLabel,
-              audience: "student",
-              journeyStage: "Revision requested",
-              scoringSheetAvailable: false,
-              revisionRound: revisionCount + 1,
-              maxRevisions: PROJECT_MAX_REVISIONS,
-            },
-          });
+          emailOutboxIds.push(
+            await enqueueProjectNotification(
+              tx,
+              {
+                portfolioId: current.id,
+                workspaceId: input.workspaceId,
+                recipient: person.email,
+                template: "PROJECT_REVISION_REQUESTED",
+                payload: {
+                  recipientName: person.name,
+                  projectTitle: current.title,
+                  workspaceName: current.workspaceName ?? "Workspace",
+                  submissionTitle: current.submissionTitle ?? slot.title,
+                  ctaUrl: `${appBaseUrl()}/dashboard/student/projects/${current.id}?source=lists`,
+                  feedback: feedbackPlain,
+                  deadlineLabel,
+                  audience: "student",
+                  journeyStage: "Revision requested",
+                  scoringSheetAvailable: false,
+                  revisionRound: revisionCount + 1,
+                  maxRevisions: PROJECT_MAX_REVISIONS,
+                },
+              },
+              { dispatch: false },
+            ),
+          );
         }
         return { id: current.id, status: "NEED_REVISION" as const };
       }
@@ -593,25 +603,31 @@ export async function lecturerModerateProject(input: {
 
       const recipients = await loadContributorEmails(current.id);
       for (const person of recipients) {
-        await enqueueProjectNotification(tx, {
-          portfolioId: current.id,
-          workspaceId: input.workspaceId,
-          recipient: person.email,
-          template: "PROJECT_PUBLISHED",
-          payload: {
-            recipientName: person.name,
-            projectTitle: current.title,
-            workspaceName: current.workspaceName ?? "Workspace",
-            submissionTitle: current.submissionTitle ?? slot.title,
-            ctaUrl: `${appBaseUrl()}/dashboard/student/projects/${current.id}?source=lists`,
-            feedback: feedbackPlain,
-            grade,
-            maxScore: slot.maxScore,
-            audience: "student",
-            journeyStage: "Published",
-            scoringSheetAvailable: true,
-          },
-        });
+        emailOutboxIds.push(
+          await enqueueProjectNotification(
+            tx,
+            {
+              portfolioId: current.id,
+              workspaceId: input.workspaceId,
+              recipient: person.email,
+              template: "PROJECT_PUBLISHED",
+              payload: {
+                recipientName: person.name,
+                projectTitle: current.title,
+                workspaceName: current.workspaceName ?? "Workspace",
+                submissionTitle: current.submissionTitle ?? slot.title,
+                ctaUrl: `${appBaseUrl()}/dashboard/student/projects/${current.id}?source=lists`,
+                feedback: feedbackPlain,
+                grade,
+                maxScore: slot.maxScore,
+                audience: "student",
+                journeyStage: "Published",
+                scoringSheetAvailable: true,
+              },
+            },
+            { dispatch: false },
+          ),
+        );
       }
 
       const [lecturer] = await tx
@@ -620,28 +636,36 @@ export async function lecturerModerateProject(input: {
         .where(eq(userTable.id, input.lecturerId))
         .limit(1);
       if (lecturer?.email) {
-        await enqueueProjectNotification(tx, {
-          portfolioId: current.id,
-          workspaceId: input.workspaceId,
-          recipient: lecturer.email,
-          template: "PROJECT_PUBLISHED",
-          payload: {
-            recipientName: lecturer.name,
-            projectTitle: current.title,
-            workspaceName: current.workspaceName ?? "Workspace",
-            submissionTitle: current.submissionTitle ?? slot.title,
-            ctaUrl: `${appBaseUrl()}/dashboard/lecturer/workspaces/${input.workspaceId}?tab=scoring&scoringSubmission=${slot.id}&project=${current.id}`,
-            feedback: feedbackPlain,
-            grade,
-            maxScore: slot.maxScore,
-            audience: "lecturer",
-            journeyStage: "Published",
-            scoringSheetAvailable: true,
-          },
-        });
+        emailOutboxIds.push(
+          await enqueueProjectNotification(
+            tx,
+            {
+              portfolioId: current.id,
+              workspaceId: input.workspaceId,
+              recipient: lecturer.email,
+              template: "PROJECT_PUBLISHED",
+              payload: {
+                recipientName: lecturer.name,
+                projectTitle: current.title,
+                workspaceName: current.workspaceName ?? "Workspace",
+                submissionTitle: current.submissionTitle ?? slot.title,
+                ctaUrl: `${appBaseUrl()}/dashboard/lecturer/workspaces/${input.workspaceId}?tab=scoring&scoringSubmission=${slot.id}&project=${current.id}`,
+                feedback: feedbackPlain,
+                grade,
+                maxScore: slot.maxScore,
+                audience: "lecturer",
+                journeyStage: "Published",
+                scoringSheetAvailable: true,
+              },
+            },
+            { dispatch: false },
+          ),
+        );
       }
       return { id: current.id, status: "PUBLISHED" as const };
     });
+
+    await dispatchProjectEmailOutboxes(emailOutboxIds);
 
     if (cacheKey) {
       try {

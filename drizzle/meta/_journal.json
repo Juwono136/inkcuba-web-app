@@ -134,6 +134,27 @@
       "when": 1792800000000,
       "tag": "0018_portfolio_score_comp_rubric_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792900000000,
+      "tag": "0019_member_component_scores",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793000000000,
+      "tag": "0020_member_comp_fk_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0021_import_item_status_idx",
+      "breakpoints": true
     }
   ]
 }

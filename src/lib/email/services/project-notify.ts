@@ -30,6 +30,24 @@ export type ProjectEmailTemplate =
   | "PROJECT_REVISION_REQUESTED"
   | "PROJECT_PUBLISHED";
 
+export async function dispatchProjectEmailOutboxes(outboxIds: string[]): Promise<void> {
+  for (const outboxId of outboxIds) {
+    try {
+      await enqueueProjectEmail({ outboxId });
+    } catch (error) {
+      logger.warn(
+        { err: error, outboxId },
+        "Project email enqueue failed; worker can retry later",
+      );
+    }
+  }
+}
+
+/**
+ * Persist a project email outbox row, then optionally enqueue BullMQ.
+ * Pass `{ dispatch: false }` inside a DB transaction and call
+ * `dispatchProjectEmailOutboxes` after commit to avoid race conditions.
+ */
 export async function enqueueProjectNotification(
   client: DbLike,
   input: {
@@ -39,6 +57,7 @@ export async function enqueueProjectNotification(
     template: ProjectEmailTemplate;
     payload: ProjectEmailInput;
   },
+  options?: { dispatch?: boolean },
 ) {
   const outboxId = crypto.randomUUID();
   await client.insert(projectEmailOutbox).values({
@@ -50,10 +69,10 @@ export async function enqueueProjectNotification(
     status: "PENDING",
     payload: input.payload as unknown as Record<string, unknown>,
   });
-  try {
-    await enqueueProjectEmail({ outboxId });
-  } catch (error) {
-    logger.warn({ err: error, outboxId }, "Project email enqueue failed; worker can retry later");
+
+  const shouldDispatch = options?.dispatch !== false;
+  if (shouldDispatch) {
+    await dispatchProjectEmailOutboxes([outboxId]);
   }
   return outboxId;
 }
@@ -105,7 +124,7 @@ export async function processProjectEmailOutbox(outboxId: string): Promise<void>
   try {
     await db
       .update(projectEmailOutbox)
-      .set({ attempts: outbox.attempts + 1 })
+      .set({ attempts: outbox.attempts + 1, status: "PENDING", lastError: null })
       .where(eq(projectEmailOutbox.id, outbox.id));
     await sendEmail({ to: outbox.recipient, subject, html, text });
     await db

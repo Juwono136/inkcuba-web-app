@@ -32,7 +32,7 @@
 | **Better Auth** | Sessions, credentials, verification, password reset |
 | **Drizzle + PostgreSQL** | Relational data model |
 | **Redis** | Rate limiting + BullMQ queues (import commit, invite emails) |
-| **BullMQ worker** | Async Excel import chunks + retryable invite emails (`scripts/workspace-worker.ts`) |
+| **BullMQ worker** | Excel People import (chunked drain, stable job ids), invite/project emails, and recovery sweeps for stuck outbox + `COMMITTING` imports (`scripts/workspace-worker.ts`) |
 | **PM2** | Production process manager for web + worker (`ecosystem.config.cjs`) |
 | **SeaweedFS** | Object storage for avatars, workspace media, Excel imports |
 | **Nodemailer** | Transactional email delivery |

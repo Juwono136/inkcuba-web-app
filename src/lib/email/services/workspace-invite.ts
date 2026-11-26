@@ -78,7 +78,7 @@ export async function processInviteEmailOutbox(outboxId: string): Promise<void> 
   try {
     await db
       .update(workspaceEmailOutbox)
-      .set({ attempts: outbox.attempts + 1 })
+      .set({ attempts: outbox.attempts + 1, status: "PENDING", lastError: null })
       .where(eq(workspaceEmailOutbox.id, outbox.id));
 
     await sendEmail({
@@ -104,7 +104,7 @@ export async function processInviteEmailOutbox(outboxId: string): Promise<void> 
       .update(workspaceEmailOutbox)
       .set({
         status: "FAILED",
-        lastError: message,
+        lastError: message.slice(0, 500),
       })
       .where(eq(workspaceEmailOutbox.id, outbox.id));
     throw error;

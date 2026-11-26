@@ -231,7 +231,7 @@ Student writes: save a draft, submit (`DRAFT` → `SUBMITTED`), resubmit (`NEED_
 
 Final grade for split mode: `round(groupTotal × groupPercent/100 + individualTotal × individualPercent/100)`, capped to `max_score`. Both totals are on the 0…`max_score` scale.
 
-`portfolio_event` stores the user-facing history timeline (and is the base for future lecturer KPI queries). `project_email_outbox` queues moderation emails for the BullMQ worker.
+`portfolio_event` stores the user-facing history timeline (and is the base for future lecturer KPI queries). `project_email_outbox` queues moderation emails for the BullMQ worker (hyphenated job ids, post-commit dispatch, plus worker recovery for stuck `PENDING`/`FAILED` rows).
 
 `portfolio_image` holds 1–3 overview images. `portfolio_video` holds one optional overview video. `portfolio_document.role` is `PROJECT` or `ADDITIONAL`. `portfolio_link` holds up to 3 extra links. `portfolio_contributor` records who may see the project after leaving a group or after the submission is removed (`group_id` / `assignment_id` / `workspace_id` become null via `ON DELETE SET NULL`; snapshots keep the labels). Live group edits stay limited to current `assignment_group_member` rows. Hard delete cascades DB children and removes matching SeaweedFS keys under `projects/{portfolioId}/`.
 
@@ -259,6 +259,8 @@ Audit log table for security/operational events. Helpers live under `src/lib/aud
 | `0017_rubric_scoring.sql` | Rubric components + portfolio score sheet / component / member score tables |
 | `0018_portfolio_score_comp_rubric_fk.sql` | Short FK name `portfolio_score_comp_rubric_fk` (avoids Postgres 63-char truncate / `db:push` rename loop) |
 | `0019_member_component_scores.sql` | `portfolio_member_component_score` for per-student rubric scores in `GROUP_AND_INDIVIDUAL` |
+| `0020_member_comp_fk_names.sql` | Short FK names for member component scores (Postgres 63-char limit) |
+| `0021_import_item_status_idx.sql` | `(job_id, status)` index on `workspace_import_job_item` for chunked commit scans |
 | `0020_member_comp_fk_names.sql` | Short FK names on member component scores (avoids Postgres 63-char truncate / `db:push` rename loop) |
 
 Migration journal: `drizzle/meta/_journal.json`.

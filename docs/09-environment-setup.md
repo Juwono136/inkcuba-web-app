@@ -173,10 +173,18 @@ It refuses to run when `NODE_ENV` is `production` or when `DATABASE_URL` points 
 |---|---|
 | `npm run dev` | Next.js (webpack) + BullMQ worker via `concurrently` |
 | `npm run dev:web` | Next.js only (webpack) |
-| `npm run worker` | BullMQ worker only |
+| `npm run worker` | BullMQ worker only (import + invite/project email queues + stuck outbox/import recovery) |
 | `npm run pm2:start` | Production PM2 (web + worker) |
 
-Optional env: `WORKSPACE_IMPORT_MAX_ROWS` (default 2000), `WORKSPACE_IMPORT_CHUNK` (default 50).
+Optional env:
+- `WORKSPACE_IMPORT_MAX_ROWS` (default 2000)
+- `WORKSPACE_IMPORT_CHUNK` (default 50) — rows processed per progress tick inside one commit job
+- `WORKER_IMPORT_CONCURRENCY` (default 2) — parallel Excel commits across workspaces
+- `WORKER_EMAIL_CONCURRENCY` (default 8) — parallel invite/project email sends
+- `WORKER_IMPORT_LOCK_MS` (default 300000) — BullMQ lock for long import drains
+- `WORKER_EMAIL_LOCK_MS` (default 60000)
+
+Excel People import: preview rows are inserted in batches of 250; commit runs as **one** stable BullMQ job that loops chunks (no parallel chunks for the same file). Stuck `COMMITTING` jobs are re-queued by the worker recovery sweep.
 
 ---
 
