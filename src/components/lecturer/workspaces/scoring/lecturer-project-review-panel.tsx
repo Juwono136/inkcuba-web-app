@@ -203,6 +203,32 @@ export function LecturerProjectReviewPanel({
     () => sumRubricScores(project?.rubric ?? [], componentScores),
     [project?.rubric, componentScores],
   );
+  const groupScoresComplete = useMemo(
+    () =>
+      Boolean(project) &&
+      project!.rubric.length > 0 &&
+      isRubricScoresComplete(project!.rubric, componentScores),
+    [project, componentScores],
+  );
+  const memberScoresComplete = useMemo(() => {
+    if (!project || !isSplit) return true;
+    return project.members.every((member) =>
+      isRubricScoresComplete(project.rubric, memberComponentScores[member.userId] ?? {}),
+    );
+  }, [project, isSplit, memberComponentScores]);
+  const publishReady =
+    !isRevision &&
+    Boolean(project?.rubric.length) &&
+    groupScoresComplete &&
+    memberScoresComplete &&
+    (!isSplit || (groupPct >= 0 && groupPct <= 100 && groupPct + individualPct === 100));
+  const revisionReady =
+    isRevision && !revisionBlocked && feedbackPlainLength >= 1 && feedbackPlainLength <= PROJECT_FEEDBACK_MAX;
+  const canOpenConfirm =
+    Boolean(project?.canModerate) &&
+    !busy &&
+    feedbackPlainLength <= PROJECT_FEEDBACK_MAX &&
+    (isRevision ? revisionReady : publishReady);
 
   async function submitDecision() {
     if (!project) return;
@@ -694,7 +720,10 @@ export function LecturerProjectReviewPanel({
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
-                      onClick={() => setDecision("PUBLISH")}
+                      onClick={() => {
+                        setDecision("PUBLISH");
+                        setFieldError(null);
+                      }}
                       className={cn(
                         "cursor-pointer rounded-2xl border-2 px-4 py-3 text-left text-sm font-semibold transition",
                         decision === "PUBLISH"
@@ -707,7 +736,7 @@ export function LecturerProjectReviewPanel({
                         Publish
                       </span>
                       <span className="mt-1 block text-xs font-normal text-slate-600">
-                        Rubric scores required. Feedback optional.
+                        Rubric scores required per scoring mode. Feedback optional.
                       </span>
                     </button>
                     <button
@@ -715,7 +744,10 @@ export function LecturerProjectReviewPanel({
                       disabled={revisionBlocked}
                       aria-disabled={revisionBlocked}
                       onClick={() => {
-                        if (!revisionBlocked) setDecision("REVISION");
+                        if (!revisionBlocked) {
+                          setDecision("REVISION");
+                          setFieldError(null);
+                        }
                       }}
                       className={cn(
                         "rounded-2xl border-2 px-4 py-3 text-left text-sm font-semibold transition",
@@ -733,10 +765,21 @@ export function LecturerProjectReviewPanel({
                       <span className="mt-1 block text-xs font-normal text-slate-600">
                         {revisionBlocked
                           ? "Unavailable: revision limit reached."
-                          : "Feedback only. No score is recorded."}
+                          : "Feedback required. Scoring is skipped."}
                       </span>
                     </button>
                   </div>
+
+                  {isRevision ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+                      <p className="font-semibold">Revision path — no scores this round</p>
+                      <p className="mt-1 text-xs text-amber-900/90">
+                        Rubric inputs stay hidden. Write clear feedback so the student knows what to
+                        fix, then send the revision request. Scores are only collected when you
+                        Publish.
+                      </p>
+                    </div>
+                  ) : null}
 
                   {!isRevision ? (
                     <div className="space-y-4">
@@ -879,7 +922,14 @@ export function LecturerProjectReviewPanel({
                     <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
                       <span className="text-sm font-semibold text-slate-800">
                         Feedback{" "}
-                        <span className="text-xs font-medium text-slate-500">
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide uppercase",
+                            isRevision
+                              ? "bg-amber-100 text-amber-900"
+                              : "bg-slate-100 text-slate-600",
+                          )}
+                        >
                           {isRevision ? "Required" : "Optional"}
                         </span>
                       </span>
@@ -908,7 +958,34 @@ export function LecturerProjectReviewPanel({
                           : "Optional note for the student about this score…"
                       }
                     />
+                    {isRevision && feedbackPlainLength < 1 ? (
+                      <p className="text-xs font-medium text-amber-800">
+                        Add feedback before you can send a revision request.
+                      </p>
+                    ) : null}
                   </div>
+
+                  {!isRevision && !publishReady ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700">
+                      <p className="font-semibold text-slate-900">Finish scoring before publish</p>
+                      <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+                        {!groupScoresComplete ? (
+                          <li>
+                            Enter a whole-number score for every{" "}
+                            {isGroup ? "group" : "project"} rubric component.
+                          </li>
+                        ) : null}
+                        {isSplit && !memberScoresComplete ? (
+                          <li>
+                            Complete the same rubric for every group member (Group + individual).
+                          </li>
+                        ) : null}
+                        {project?.rubric.length === 0 ? (
+                          <li>This submission has no rubric components to score.</li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   {fieldError ? (
                     <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -919,8 +996,11 @@ export function LecturerProjectReviewPanel({
                   <Button
                     type="button"
                     className="bg-inkcuba-cyan hover:bg-sky-600"
-                    disabled={busy || (isRevision && revisionBlocked)}
-                    onClick={() => setConfirmOpen(true)}
+                    disabled={!canOpenConfirm}
+                    onClick={() => {
+                      setFieldError(null);
+                      setConfirmOpen(true);
+                    }}
                   >
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {decision === "PUBLISH" ? "Publish project" : "Send revision request"}
@@ -954,8 +1034,12 @@ export function LecturerProjectReviewPanel({
         title={decision === "PUBLISH" ? "Publish this project?" : "Request a revision?"}
         description={
           decision === "PUBLISH"
-            ? "The student will see the score and can no longer edit this project."
-            : "The student will receive your feedback and can revise before the submission deadline. Group moves unlock again during revision."
+            ? isSplit
+              ? `Publish with Group + individual scoring (${groupPct}% group / ${individualPct}% individual). Students see their blended finals and can no longer edit.`
+              : isGroup
+                ? "Publish with one shared group rubric score for every member. Students see the score and can no longer edit."
+                : "Publish with the rubric scores you entered. The student sees the score and can no longer edit this project."
+            : "No scores will be saved. The student receives your feedback and can revise before the submission deadline."
         }
         confirmLabel={decision === "PUBLISH" ? "Publish" : "Request revision"}
         loading={busy}

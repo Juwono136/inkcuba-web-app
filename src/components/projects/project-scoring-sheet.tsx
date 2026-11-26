@@ -1,6 +1,13 @@
 "use client";
 
-import { CheckCircle2, ClipboardCheck, RotateCcw, Users } from "lucide-react";
+import {
+  CheckCircle2,
+  ClipboardCheck,
+  Scale,
+  UserRound,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -62,9 +69,16 @@ export type ProjectScoringSheetData = {
 };
 
 const MODE_LABEL: Record<ProjectScoringMode, string> = {
-  INDIVIDUAL: "Individual only",
+  INDIVIDUAL: "Individual submission",
   GROUP_ONLY: "Group only",
   GROUP_AND_INDIVIDUAL: "Group + individual",
+};
+
+const MODE_HINT: Record<ProjectScoringMode, string> = {
+  INDIVIDUAL: "One rubric pass for this student project.",
+  GROUP_ONLY: "One shared rubric score applies to every group member.",
+  GROUP_AND_INDIVIDUAL:
+    "Group rubric is blended with each student’s own rubric scores by weight.",
 };
 
 function formatScore(value: number | null | undefined) {
@@ -85,6 +99,47 @@ function formatWhen(value: string) {
   }).format(date);
 }
 
+function ComponentRows({
+  components,
+  emptyLabel,
+}: {
+  components: ProjectScoringSheetComponent[] | ProjectScoringSheetMemberComponent[];
+  emptyLabel: string;
+}) {
+  if (components.length === 0) {
+    return <p className="px-4 py-6 text-center text-sm text-slate-500">{emptyLabel}</p>;
+  }
+  return (
+    <ul className="max-h-[min(18rem,40vh)] divide-y divide-slate-100 overflow-y-auto overscroll-contain">
+      {components.map((component, index) => (
+        <li
+          key={`${component.name}-${index}`}
+          className="flex flex-wrap items-start justify-between gap-2 px-4 py-3"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-slate-900">{component.name}</p>
+            {component.description ? (
+              <p className="mt-0.5 whitespace-pre-line text-xs text-slate-500">
+                {component.description}
+              </p>
+            ) : null}
+            <p className="mt-1 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
+              {formatScore(component.weightPercent)}% · max {formatScore(component.maxPoints)}
+            </p>
+          </div>
+          <p className="shrink-0 text-sm font-bold text-inkcuba-navy">
+            {formatScore(component.score)}
+            <span className="font-medium text-slate-500">
+              {" "}
+              / {formatScore(component.maxPoints)}
+            </span>
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function ProjectScoringSheet({
   sheet,
   className,
@@ -92,183 +147,222 @@ export function ProjectScoringSheet({
   sheet: ProjectScoringSheetData;
   className?: string;
 }) {
-  const isPublish = sheet.decision === "PUBLISH";
-  const showSplit = sheet.scoringMode === "GROUP_AND_INDIVIDUAL";
+  const isIndividual = sheet.scoringMode === "INDIVIDUAL";
+  const isGroupOnly = sheet.scoringMode === "GROUP_ONLY";
+  const isSplit = sheet.scoringMode === "GROUP_AND_INDIVIDUAL";
+  const [openMemberId, setOpenMemberId] = useState<string | null>(
+    () => sheet.members[0]?.userId ?? null,
+  );
+
+  const headlineScore =
+    isSplit
+      ? null
+      : (sheet.finalGrade ?? sheet.groupTotal);
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-              isPublish
-                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-            )}
-          >
-            {isPublish ? (
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+      <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-sky-50/70 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                Published scores
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-inkcuba-navy/5 px-3 py-1 text-xs font-semibold text-inkcuba-navy">
+                {isIndividual ? (
+                  <UserRound className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <Users className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {MODE_LABEL[sheet.scoringMode]}
+              </span>
+            </div>
+            <p className="text-sm text-slate-600">{MODE_HINT[sheet.scoringMode]}</p>
+            {isSplit ? (
+              <p className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-950">
+                <Scale className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Blend {formatScore(sheet.groupPercent)}% group +{" "}
+                {formatScore(sheet.individualPercent)}% individual
+              </p>
+            ) : null}
+          </div>
+          <div className="text-right">
+            {headlineScore != null ? (
+              <>
+                <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                  {isIndividual ? "Final score" : "Shared group score"}
+                </p>
+                <p className="font-heading text-2xl font-bold text-emerald-700">
+                  {formatScore(headlineScore)}
+                  <span className="text-base font-semibold text-slate-500">
+                    {" "}
+                    / {formatScore(sheet.maxScore)}
+                  </span>
+                </p>
+              </>
             ) : (
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              <>
+                <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                  Group total
+                </p>
+                <p className="font-heading text-2xl font-bold text-inkcuba-navy">
+                  {formatScore(sheet.groupTotal)}
+                  <span className="text-base font-semibold text-slate-500">
+                    {" "}
+                    / {formatScore(sheet.maxScore)}
+                  </span>
+                </p>
+              </>
             )}
-            {isPublish ? "Published" : "Revision requested"}
-          </span>
-          <span className="rounded-full bg-inkcuba-navy/5 px-3 py-1 text-xs font-semibold text-inkcuba-navy">
-            {MODE_LABEL[sheet.scoringMode]}
-            {showSplit
-              ? ` · ${formatScore(sheet.groupPercent)}% group / ${formatScore(sheet.individualPercent)}% individual`
-              : ""}
-          </span>
+            <time dateTime={sheet.createdAt} className="mt-1 block text-xs text-slate-500">
+              {formatWhen(sheet.createdAt)}
+            </time>
+          </div>
         </div>
-        <time dateTime={sheet.createdAt} className="text-xs text-slate-500">
-          {formatWhen(sheet.createdAt)}
-        </time>
       </div>
 
-      {/* Rubric table */}
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <h3 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 font-heading text-sm font-bold text-inkcuba-navy">
           <ClipboardCheck className="h-4 w-4 text-inkcuba-cyan" aria-hidden />
-          Rubric scores
+          {isIndividual ? "Rubric scores" : "Group rubric scores"}
         </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-semibold">Component</th>
-                <th className="px-3 py-2 text-right font-semibold">Weight</th>
-                <th className="px-3 py-2 text-right font-semibold">Max</th>
-                <th className="px-4 py-2 text-right font-semibold">Score</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sheet.components.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
-                    No rubric components recorded.
-                  </td>
-                </tr>
-              ) : (
-                sheet.components.map((component, index) => (
-                  <tr key={`${component.name}-${index}`} className="align-top">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{component.name}</p>
-                      {component.description ? (
-                        <p className="mt-0.5 whitespace-pre-line text-xs text-slate-500">
-                          {component.description}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3 text-right text-slate-600">
-                      {formatScore(component.weightPercent)}%
-                    </td>
-                    <td className="px-3 py-3 text-right text-slate-600">
-                      {formatScore(component.maxPoints)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-inkcuba-navy">
-                      {formatScore(component.score)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            <tfoot className="border-t-2 border-slate-200 bg-slate-50/80">
-              <tr>
-                <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-slate-700">
-                  Group total
-                </td>
-                <td className="px-4 py-3 text-right text-sm font-bold text-inkcuba-navy">
-                  {formatScore(sheet.groupTotal)}
-                  <span className="font-medium text-slate-500"> / {formatScore(sheet.maxScore)}</span>
-                </td>
-              </tr>
-              {sheet.finalGrade != null ? (
-                <tr>
-                  <td colSpan={3} className="px-4 pb-3 text-sm font-semibold text-slate-700">
-                    Final grade
-                  </td>
-                  <td className="px-4 pb-3 text-right text-base font-bold text-emerald-700">
-                    {formatScore(sheet.finalGrade)}
-                    <span className="text-sm font-medium text-slate-500">
-                      {" "}
-                      / {formatScore(sheet.maxScore)}
-                    </span>
-                  </td>
-                </tr>
-              ) : null}
-            </tfoot>
-          </table>
+        <ComponentRows
+          components={sheet.components}
+          emptyLabel="No rubric components recorded."
+        />
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/80 px-4 py-3">
+          <span className="text-sm font-semibold text-slate-700">
+            {isIndividual ? "Project total" : "Group total"}
+          </span>
+          <span className="text-sm font-bold text-inkcuba-navy">
+            {formatScore(sheet.groupTotal)}
+            <span className="font-medium text-slate-500"> / {formatScore(sheet.maxScore)}</span>
+          </span>
         </div>
       </section>
 
-      {/* Group feedback (HTML must be sanitized server-side) */}
+      {isGroupOnly && sheet.members.length > 0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="flex items-center gap-2 font-heading text-sm font-bold text-inkcuba-navy">
+            <Users className="h-4 w-4 text-inkcuba-cyan" aria-hidden />
+            Members receive the same score
+          </h3>
+          <p className="mt-1 text-xs text-slate-600">
+            Group-only mode assigns the group total to every member as their final grade.
+          </p>
+          <ul className="mt-3 max-h-[min(16rem,35vh)] space-y-2 overflow-y-auto overscroll-contain">
+            {sheet.members.map((member) => (
+              <li
+                key={member.userId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5"
+              >
+                <p className="min-w-0 text-sm font-semibold text-slate-900">{member.name}</p>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  Final {formatScore(member.finalGrade)} / {formatScore(sheet.maxScore)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {isSplit && sheet.members.length > 0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="flex items-center gap-2 font-heading text-sm font-bold text-inkcuba-navy">
+                <Users className="h-4 w-4 text-inkcuba-cyan" aria-hidden />
+                Individual member scores
+              </h3>
+              <p className="mt-1 text-xs text-slate-600">
+                Final = group total × {formatScore(sheet.groupPercent)}% + individual total ×{" "}
+                {formatScore(sheet.individualPercent)}%.
+              </p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+              {sheet.members.length} {sheet.members.length === 1 ? "member" : "members"}
+            </span>
+          </div>
+
+          <div className="mt-3 -mx-1 flex gap-2 overflow-x-auto overscroll-contain px-1 pb-1">
+            {sheet.members.map((member) => {
+              const selected = openMemberId === member.userId;
+              return (
+                <button
+                  key={member.userId}
+                  type="button"
+                  onClick={() => setOpenMemberId(member.userId)}
+                  className={cn(
+                    "inline-flex shrink-0 cursor-pointer flex-col rounded-xl border px-3 py-2 text-left transition",
+                    selected
+                      ? "border-inkcuba-navy bg-inkcuba-navy text-white shadow-sm"
+                      : "border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300",
+                  )}
+                >
+                  <span className="max-w-[10rem] truncate text-xs font-semibold">{member.name}</span>
+                  <span
+                    className={cn(
+                      "mt-0.5 text-[11px] font-medium",
+                      selected ? "text-white/80" : "text-slate-500",
+                    )}
+                  >
+                    Final {formatScore(member.finalGrade)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {(() => {
+            const member =
+              sheet.members.find((row) => row.userId === openMemberId) ?? sheet.members[0];
+            if (!member) return null;
+            return (
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/60">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2.5">
+                  <p className="text-sm font-semibold text-slate-900">{member.name}</p>
+                  <div className="flex flex-wrap gap-1.5 text-xs font-semibold">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
+                      Individual {formatScore(member.individualScore)} /{" "}
+                      {formatScore(sheet.maxScore)}
+                    </span>
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 ring-1 ring-emerald-200">
+                      Final {formatScore(member.finalGrade)} / {formatScore(sheet.maxScore)}
+                    </span>
+                  </div>
+                </div>
+                {member.components && member.components.length > 0 ? (
+                  <ComponentRows
+                    components={member.components}
+                    emptyLabel="No individual component scores."
+                  />
+                ) : (
+                  <p className="px-3 py-4 text-xs text-slate-500">
+                    Individual total {formatScore(member.individualScore)} (component breakdown not
+                    available for this sheet).
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </section>
+      ) : null}
+
+      {isIndividual && sheet.members.length === 1 ? (
+        <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+          Scored for{" "}
+          <span className="font-semibold text-slate-900">{sheet.members[0]?.name}</span>.
+        </p>
+      ) : null}
+
       {sheet.groupFeedback ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="font-heading text-sm font-bold text-inkcuba-navy">Group feedback</h3>
+          <h3 className="font-heading text-sm font-bold text-inkcuba-navy">Lecturer feedback</h3>
           <div
             className="inkcuba-rich-text-content prose prose-sm mt-2 max-w-none text-slate-700"
             dangerouslySetInnerHTML={{ __html: sheet.groupFeedback }}
           />
-        </section>
-      ) : null}
-
-      {/* Members */}
-      {sheet.members.length > 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="flex items-center gap-2 font-heading text-sm font-bold text-inkcuba-navy">
-            <Users className="h-4 w-4 text-inkcuba-cyan" aria-hidden />
-            Member grades
-          </h3>
-          <ul className="mt-3 space-y-3">
-            {sheet.members.map((member) => (
-              <li
-                key={member.userId}
-                className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="min-w-0 text-sm font-semibold text-slate-900">{member.name}</p>
-                  <div className="flex shrink-0 flex-wrap gap-1.5 text-xs font-semibold">
-                    {showSplit ? (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
-                        Individual {formatScore(member.individualScore)}
-                        <span className="font-medium text-slate-500">
-                          {" "}
-                          / {formatScore(sheet.maxScore)}
-                        </span>
-                      </span>
-                    ) : null}
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 ring-1 ring-emerald-200">
-                      Final {formatScore(member.finalGrade)}
-                    </span>
-                  </div>
-                </div>
-                {showSplit && member.components && member.components.length > 0 ? (
-                  <ul className="mt-2 space-y-1.5 border-t border-slate-200/80 pt-2">
-                    {member.components.map((component, index) => (
-                      <li
-                        key={`${member.userId}-${component.name}-${index}`}
-                        className="flex flex-wrap items-start justify-between gap-2 text-xs"
-                      >
-                        <span className="min-w-0 text-slate-600">
-                          <span className="font-medium text-slate-800">{component.name}</span>
-                          <span className="text-slate-400"> · {formatScore(component.weightPercent)}%</span>
-                        </span>
-                        <span className="shrink-0 font-semibold text-inkcuba-navy">
-                          {formatScore(component.score)}
-                          <span className="font-medium text-slate-500">
-                            {" "}
-                            / {formatScore(component.maxPoints)}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
-          </ul>
         </section>
       ) : null}
     </div>

@@ -115,7 +115,7 @@ export function ProjectAssessmentPanel({
         ) : (
           <EmptyState
             message="No scoring results yet."
-            hint="This tab is always available. Component scores, feedback, and member grades appear here after the project is published."
+            hint="Results appear after Publish. Revision requests only store feedback—no score sheet. Layout follows the scoring mode (individual, group only, or group + individual)."
           />
         )}
       </div>
